@@ -1,0 +1,2175 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DAILY.WINDOW — 每日窗口工作台</title>
+<meta name="theme-color" content="#0d0d0d" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="DW 工作台" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20192%20192'%3E%3Crect%20width='192'%20height='192'%20rx='42'%20fill='%230d0d0d'/%3E%3Ccircle%20cx='72'%20cy='72'%20r='9'%20fill='%23f0f0ee'/%3E%3Ccircle%20cx='120'%20cy='72'%20r='9'%20fill='%23f0f0ee'/%3E%3Ccircle%20cx='72'%20cy='120'%20r='9'%20fill='%23f0f0ee'/%3E%3Ccircle%20cx='120'%20cy='120'%20r='9'%20fill='%23d71920'/%3E%3C/svg%3E" sizes="any" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="manifest" href="manifest.json" />
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f4f1; --ink:#141414; --muted:#7a7a76;
+    --card:rgba(255,255,255,.78); --glass:rgba(255,255,255,.6);
+    --line:#141414; --hair:rgba(20,20,20,.16); --dot:rgba(20,20,20,.07);
+    --accent:#d71920;
+    --radius:18px;
+    --fdot:'DotGothic16','VT323',ui-monospace,monospace;
+    --fmono:'IBM Plex Mono',ui-monospace,'PingFang SC','Microsoft YaHei',monospace;
+    --fbody:'Inter','PingFang SC','Microsoft YaHei',sans-serif;
+  }
+  html[data-theme="dark"]{
+    --bg:#0d0d0d; --ink:#f0f0ee; --muted:#8b8b88;
+    --card:rgba(24,24,24,.78); --glass:rgba(24,24,24,.55);
+    --line:#f0f0ee; --hair:rgba(240,240,238,.18); --dot:rgba(255,255,255,.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:var(--fbody);color:var(--ink);background-color:var(--bg);
+    background-image:radial-gradient(var(--dot) 1px,transparent 1.3px);
+    background-size:22px 22px;min-height:100vh;
+    transition:background-color .35s,color .35s;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1160px;margin:0 auto;padding:20px 22px 70px;}
+
+  /* ============ TOP BAR ============ */
+  .topbar{
+    display:flex;align-items:center;gap:16px;
+    padding:12px 18px;border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--glass);backdrop-filter:blur(14px);
+    position:sticky;top:14px;z-index:40;transition:all .3s;
+  }
+  .brand{display:flex;align-items:center;gap:10px;min-width:0;}
+  .brand .nm{font-family:var(--fdot);font-size:21px;letter-spacing:1.5px;white-space:nowrap;}
+  .live{display:flex;align-items:center;gap:6px;font-family:var(--fmono);font-size:9px;letter-spacing:2px;color:var(--muted);}
+  .live i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:blink 1.2s infinite;}
+  @keyframes blink{50%{opacity:.15}}
+  .eq{display:flex;align-items:flex-end;gap:3px;height:16px;margin-left:6px;}
+  .eq i{width:3px;background:var(--ink);transform-origin:bottom;animation:eq 1s ease-in-out infinite;}
+  .eq i:nth-child(1){height:55%;animation-delay:0s}
+  .eq i:nth-child(2){height:90%;animation-delay:.15s}
+  .eq i:nth-child(3){height:65%;animation-delay:.3s}
+  .eq i:nth-child(4){height:100%;animation-delay:.45s}
+  .eq i:nth-child(5){height:45%;animation-delay:.6s}
+  @keyframes eq{0%,100%{transform:scaleY(.45)}50%{transform:scaleY(1)}}
+  .tabs{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;}
+  #syncBtn,#newsRefresh{width:34px;height:34px;border:1px solid var(--line);border-radius:50%;background:transparent;color:var(--ink);cursor:pointer;font-size:15px;transition:all .2s;display:flex;align-items:center;justify-content:center;}
+  #syncBtn:hover,#newsRefresh:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--line);}
+  .sync-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;margin-left:4px;position:relative;top:1px;}
+  .sync-dot.ok{background:#2e9e5b;}
+  .sync-dot.syncing{background:#e0a32e;animation:syncpulse 1s infinite;}
+  .sync-dot.err{background:#c0392b;}
+  @keyframes syncpulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .sync-pop{position:fixed;top:54px;right:18px;width:300px;max-width:calc(100vw - 36px);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:6px 6px 0 var(--line);z-index:60;display:none;}
+  .sync-pop.open{display:block;animation:fadeUp .25s ease;}
+  .sync-pop .sp-h{font-family:var(--fmono);font-size:12px;letter-spacing:2px;margin-bottom:12px;color:var(--ink);}
+  .sync-pop label{display:block;font-family:var(--fmono);font-size:9px;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;}
+  .sync-pop input,.sync-pop textarea{display:block;width:100%;margin-top:5px;font-family:var(--fmono);font-size:12px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--ink);outline:none;box-sizing:border-box;}
+  .sync-pop textarea{resize:vertical;line-height:1.4;}
+  .sync-pop .sp-btns{display:flex;gap:8px;margin-top:6px;}
+  .sync-pop .sp-btns button{flex:1;font-family:var(--fmono);font-size:11px;letter-spacing:1px;padding:9px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);transition:all .15s;}
+  .sync-pop .sp-btns button.primary{background:var(--ink);color:var(--bg);}
+  .sync-pop .sp-btns button:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--line);}
+  .sync-pop .sp-tip{font-family:var(--fmono);font-size:8.5px;line-height:1.6;color:var(--muted);margin-top:12px;}
+  .sp-divider{height:1px;background:var(--line);margin:12px 0 8px;}
+  .sp-sub{font-size:12px;color:var(--mut);margin-bottom:6px;line-height:1.5;}
+  .code-chunk{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:rgba(127,127,127,.05);}
+  .code-chunk-label{font-family:var(--fmono);font-size:9px;color:var(--muted);margin-bottom:5px;}
+  .code-chunk-ta{width:100%;font-family:var(--fmono);font-size:11px;line-height:1.5;color:var(--ink);background:transparent;border:none;outline:none;resize:none;word-break:break-all;}
+  .code-chunk-btn{margin-top:6px;font-size:11px;padding:5px 10px;}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font-family:var(--fmono);font-size:11px;letter-spacing:1px;padding:9px 16px;border-radius:20px;opacity:0;pointer-events:none;transition:all .25s;z-index:80;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .tab{
+    font-family:var(--fmono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;
+    padding:8px 15px;border:1px solid var(--line);border-radius:20px;cursor:pointer;
+    background:transparent;color:var(--ink);transition:all .18s;white-space:nowrap;
+  }
+  .tab:hover:not(.active){background:var(--hair);}
+  .tab.active{background:var(--ink);color:var(--bg);}
+  .clock{text-align:right;line-height:1.25;}
+  .clock b{font-family:var(--fdot);font-size:22px;font-weight:400;letter-spacing:1px;}
+  .clock span{display:block;font-family:var(--fmono);font-size:9.5px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
+  #themeBtn{
+    width:36px;height:36px;border:1px solid var(--line);border-radius:50%;cursor:pointer;
+    background:linear-gradient(90deg,var(--ink) 50%,transparent 50%);
+    transition:transform .4s;flex:0 0 auto;
+  }
+  html[data-theme="dark"] #themeBtn{transform:rotate(180deg);}
+
+  /* ============ TICKER ============ */
+  .mq{
+    margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    background:var(--card);backdrop-filter:blur(10px);transition:all .3s;
+  }
+  .mq-track{display:inline-flex;white-space:nowrap;padding:9px 0;animation:mq 45s linear infinite;}
+  .mq:hover .mq-track{animation-play-state:paused;}
+  @keyframes mq{to{transform:translateX(-50%)}}
+  .mi{display:inline-flex;align-items:center;gap:8px;padding:0 20px;font-family:var(--fmono);font-size:11.5px;letter-spacing:.5px;}
+  .mi .d{width:6px;height:6px;border-radius:50%;background:var(--ink);flex:0 0 auto;}
+  .mi .d.r{background:var(--accent);}
+
+  /* ============ BOARDS ============ */
+  .board{display:none;margin-top:26px;}
+  .board.active{display:block;animation:fadeUp .45s ease;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  #b3.active .bh{margin:0 0 8px;}
+  #b3.active .bh .tag,#b3.active .bh .sub{color:#806858;}
+  #b3.active .bh h2{color:#4A3728;}
+  #b3 .foot{color:#806858;}
+  .bh{margin:0 2px;}
+  .bh .tag{font-family:var(--fmono);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;}
+  .bh h2{font-family:var(--fdot);font-size:38px;letter-spacing:2px;font-weight:400;margin-top:2px;}
+  .bh .sub{font-family:var(--fmono);font-size:11px;letter-spacing:1px;color:var(--muted);margin-top:6px;}
+
+  .sec{display:flex;align-items:baseline;gap:14px;margin:34px 0 14px;}
+  .sec .no{font-family:var(--fdot);font-size:26px;}
+  .sec .t{font-family:var(--fmono);font-size:12px;letter-spacing:3px;text-transform:uppercase;}
+  .sec .rule{flex:1;border-top:1px dashed var(--hair);}
+  .sec .meta{font-family:var(--fmono);font-size:10px;letter-spacing:1px;color:var(--muted);}
+
+  .rv{opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s ease;}
+  .rv.in{opacity:1;transform:none;}
+
+  /* ============ STATS ============ */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px;}
+  .stat{border:1px solid var(--line);border-radius:14px;background:var(--card);backdrop-filter:blur(8px);padding:13px 15px;transition:all .18s;}
+  .stat:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--line);}
+  .stat .v{font-family:var(--fdot);font-size:32px;line-height:1;}
+  .stat .l{font-family:var(--fmono);font-size:9.5px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:7px;}
+
+  /* ============ CHIPS ============ */
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .chip{
+    font-family:var(--fmono);font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;
+    padding:6px 13px;border:1px solid var(--line);border-radius:20px;cursor:pointer;
+    background:transparent;color:var(--muted);transition:all .15s;
+  }
+  .chip:hover{color:var(--ink);}
+  .chip.active{background:var(--ink);color:var(--bg);}
+
+  /* ============ NEWS FEED ============ */
+  .feed{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-height:470px;overflow:auto;padding:2px 6px 6px 2px;}
+  .feed::-webkit-scrollbar{width:5px;}
+  .feed::-webkit-scrollbar-thumb{background:var(--hair);border-radius:6px;}
+  .ncard{
+    position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:15px 15px 12px;backdrop-filter:blur(8px);transition:all .16s;
+  }
+  .ncard:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--line);}
+  .ncard .idx{position:absolute;top:10px;right:13px;font-family:var(--fdot);font-size:19px;color:var(--hair);}
+  .b{font-family:var(--fmono);font-size:9px;letter-spacing:1.5px;padding:3px 8px;border-radius:6px;text-transform:uppercase;border:1px solid var(--line);display:inline-block;margin-bottom:9px;}
+  .b.fill{background:var(--ink);color:var(--bg);}
+  .b.red{color:var(--accent);border-color:var(--accent);}
+  .ncard h4{font-size:14.5px;font-weight:600;line-height:1.45;padding-right:34px;}
+  .ncard p{font-size:12.6px;color:var(--muted);line-height:1.6;margin-top:6px;}
+  .ncard .meta{margin-top:10px;padding-top:8px;border-top:1px dashed var(--hair);font-family:var(--fmono);font-size:9.5px;letter-spacing:1px;color:var(--muted);display:flex;justify-content:space-between;}
+
+  /* ============ FINANCE ============ */
+  .fin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .fcard{
+    position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:15px 15px 12px 19px;backdrop-filter:blur(8px);transition:all .16s;overflow:hidden;
+  }
+  .fcard::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;background:var(--ink);}
+  .fcard.global::before{background:var(--accent);}
+  .fcard:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--line);}
+  .ftag{font-family:var(--fmono);font-size:9px;letter-spacing:1.5px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);display:inline-block;margin-bottom:9px;text-transform:uppercase;}
+  .fcard.global .ftag{color:var(--accent);border-color:var(--accent);}
+  .fcard h4{font-size:13.8px;font-weight:600;line-height:1.45;}
+  .fcard p{font-size:12.4px;color:var(--muted);line-height:1.6;margin-top:6px;}
+  .fcard .meta{margin-top:10px;padding-top:8px;border-top:1px dashed var(--hair);font-family:var(--fmono);font-size:9.5px;letter-spacing:1px;color:var(--muted);display:flex;justify-content:space-between;}
+
+  /* ============ SKILL PICKS (board 01 / 03) ============ */
+  .skill-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px;margin-top:16px;}
+  .skill-card{
+    display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px 13px;
+    backdrop-filter:blur(8px);transition:transform .12s,box-shadow .12s;position:relative;overflow:hidden;
+  }
+  .skill-card:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--line);}
+  .skill-card:visited{color:inherit;}
+  .skill-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .skill-region{font-family:var(--fmono);font-size:9px;letter-spacing:1.2px;padding:2px 8px;border-radius:20px;border:1px solid var(--hair);color:var(--muted);text-transform:uppercase;}
+  .skill-card.cn .skill-region{color:var(--accent);border-color:var(--accent);}
+  .skill-stars{font-family:var(--fmono);font-size:11px;letter-spacing:1px;color:var(--accent);white-space:nowrap;}
+  .skill-name{font-family:var(--fdot);font-size:18px;line-height:1.05;letter-spacing:.5px;}
+  .skill-by{font-family:var(--fmono);font-size:9px;letter-spacing:.5px;color:var(--muted);margin-top:-3px;}
+  .skill-intro{font-size:12.5px;line-height:1.55;opacity:.84;}
+  .skill-go{margin-top:auto;padding-top:10px;border-top:1px solid var(--hair);font-family:var(--fmono);font-size:10px;letter-spacing:1.2px;color:var(--accent);display:flex;align-items:center;justify-content:space-between;}
+  .skill-go .arrow{transition:transform .14s;}
+  .skill-card:hover .skill-go .arrow{transform:translateX(4px);}
+  .skill-lang{font-family:var(--fmono);font-size:9px;color:var(--muted);margin-left:6px;}
+  .skill-note{font-family:var(--fmono);font-size:9px;color:var(--muted);}
+
+  /* ============ PLATFORM NOTICES (board 01 / 04) ============ */
+  .plat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:16px;}
+  .plat-card{
+    display:flex;flex-direction:column;gap:9px;text-decoration:none;color:inherit;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px 13px;
+    backdrop-filter:blur(8px);transition:transform .12s,box-shadow .12s;position:relative;overflow:hidden;
+  }
+  .plat-card:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--line);}
+  .plat-card:visited{color:inherit;}
+  .plat-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .plat-tag{font-family:var(--fmono);font-size:9px;letter-spacing:1.2px;padding:2px 9px;border-radius:20px;border:1px solid var(--hair);white-space:nowrap;}
+  .plat-tag.douyin{color:#fff;background:#161823;border-color:#161823;}
+  .plat-tag.xhs{color:#fff;background:#ff2442;border-color:#ff2442;}
+  .plat-tag.channels{color:#fff;background:#07c160;border-color:#07c160;}
+  .plat-tag.taobao{color:#fff;background:#ff5000;border-color:#ff5000;}
+  .plat-tag.xingtu{color:#fff;background:#1f6fff;border-color:#1f6fff;}
+  .plat-date{font-family:var(--fmono);font-size:9px;letter-spacing:.5px;color:var(--muted);}
+  .plat-title{font-family:var(--fdot);font-size:16.5px;line-height:1.12;letter-spacing:.3px;}
+  .plat-intro{font-size:12.5px;line-height:1.55;opacity:.84;}
+  .plat-go{margin-top:auto;padding-top:10px;border-top:1px solid var(--hair);font-family:var(--fmono);font-size:10px;letter-spacing:1.2px;color:var(--accent);display:flex;align-items:center;justify-content:space-between;}
+  .plat-go .arrow{transition:transform .14s;}
+  .plat-card:hover .plat-go .arrow{transform:translateX(4px);}
+  .plat-note{font-family:var(--fmono);font-size:9px;color:var(--muted);margin-top:10px;}
+
+  /* ============ HERO (glass wipe) ============ */
+  .hero{position:relative;height:250px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;transition:all .3s;}
+  .hero-bg{position:absolute;inset:0;background:#0a0a0a;color:#f4f4f1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;}
+  .hero-bg .big{font-family:var(--fdot);font-size:44px;letter-spacing:3px;}
+  .hero-bg .small{font-family:var(--fmono);font-size:10.5px;letter-spacing:3px;opacity:.65;text-transform:uppercase;}
+  .hero .rec{position:absolute;top:13px;left:15px;font-family:var(--fmono);font-size:9.5px;letter-spacing:2px;color:#f4f4f1;display:flex;gap:7px;align-items:center;opacity:.9;pointer-events:none;z-index:2;}
+  .hero .rec i{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1.2s infinite;}
+  #glassCanvas{position:absolute;inset:0;cursor:crosshair;}
+  .hint{
+    position:absolute;bottom:13px;left:50%;transform:translateX(-50%);
+    font-family:var(--fmono);font-size:9.5px;letter-spacing:2.5px;text-transform:uppercase;
+    border:1px solid var(--line);border-radius:20px;padding:7px 15px;
+    background:var(--card);color:var(--ink);pointer-events:none;transition:opacity .5s;
+  }
+
+  /* ============ WOODFISH · 电子木鱼 ============ */
+  .muyu-box{display:flex;gap:16px;align-items:stretch;border:1px solid var(--line);border-radius:var(--radius);background:var(--glass);backdrop-filter:blur(8px);padding:14px 16px;margin-bottom:16px;}
+  .muyu-l{display:flex;flex-direction:column;justify-content:space-between;min-width:130px;}
+  .muyu-title{font-family:var(--fmono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+  .muyu-sub{font-family:var(--fmono);font-size:9.5px;letter-spacing:1px;color:var(--muted);margin-top:5px;}
+  .muyu-count{font-family:var(--fdot);font-size:26px;letter-spacing:1px;margin-top:8px;}
+  .muyu-count em{font-style:normal;color:var(--muted);font-size:13px;margin-left:2px;}
+  .muyu-sound{font-family:var(--fmono);font-size:9px;letter-spacing:1.5px;border:1px solid var(--hair);border-radius:20px;padding:3px 9px;cursor:pointer;align-self:flex-start;color:var(--muted);transition:all .15s;user-select:none;}
+  .muyu-sound:hover{color:var(--ink);border-color:var(--line);}
+  .muyu-sound.on{color:var(--ink);border-color:var(--line);}
+  .muyu-stage{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:150px;border-left:1px solid var(--hair);padding-left:16px;}
+  .muyu-svg{width:100%;max-width:300px;height:auto;color:var(--ink);cursor:pointer;touch-action:manipulation;outline:none;}
+  .muyu-svg .ink{fill:var(--ink);}
+  .muyu-svg .hl{fill:var(--bg);opacity:.4;}
+  .muyu-svg .hole{fill:var(--bg);}
+  .muyu-svg .shade{fill:var(--ink);opacity:.25;}
+  .muyu-svg .stick{stroke:var(--ink);stroke-width:13;stroke-linecap:round;fill:none;}
+  .muyu-shadow{fill:var(--ink);opacity:.12;transform-box:view-box;transform-origin:150px 222px;transition:all .12s;}
+  .muyu-mallet{transform-box:view-box;transform-origin:150px 60px;transition:transform .1s cubic-bezier(.2,.8,.25,1.5);}
+  .muyu-svg.knock .muyu-mallet{transform:translateY(8px);}
+  .muyu-body{transform-box:view-box;transform-origin:150px 218px;transition:transform .1s;}
+  .muyu-svg.knock .muyu-body{transform:scaleY(.955);}
+  .muyu-svg.knock .muyu-shadow{transform:scaleX(1.06);opacity:.2;}
+  .muyu-fx{position:absolute;inset:0;pointer-events:none;overflow:visible;}
+  .muyu-fx b{position:absolute;font-family:var(--fdot);font-size:18px;color:var(--ink);white-space:nowrap;animation:muyuPop .9s ease-out forwards;}
+  @keyframes muyuPop{0%{opacity:0;transform:translateY(0) scale(.7)}15%{opacity:1}100%{opacity:0;transform:translateY(-46px) scale(1.1)}}
+  @media(max-width:560px){.muyu-box{flex-direction:column;}.muyu-stage{border-left:none;border-top:1px solid var(--hair);padding-left:0;padding-top:12px;}}
+
+  /* ============ KANBAN ============ */
+  .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .kcol{border:1px solid var(--line);border-radius:14px;background:var(--glass);backdrop-filter:blur(8px);padding:12px;min-height:160px;transition:all .18s;}
+  .kcol.over{border-style:dashed;background:var(--hair);}
+  .kcol-h{display:flex;align-items:center;font-family:var(--fmono);font-size:10.5px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
+  .kcol-h span{margin-left:auto;font-family:var(--fdot);font-size:15px;border:1px solid var(--line);border-radius:20px;padding:1px 9px;}
+  .kcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;cursor:grab;transition:all .15s;}
+  .kcard:hover{transform:translate(-2px,-2px);box-shadow:3px 3px 0 var(--line);}
+  .kcard:active{cursor:grabbing;}
+  .kcard.drag{opacity:.35;}
+  .kcard .kn{font-size:13.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+  .kcard .kdel{float:right;font-size:16px;font-weight:400;color:var(--muted);cursor:pointer;line-height:1;padding:0 4px;}
+  .kcard .kdel:hover{color:var(--accent);}
+  .kcard .ks{font-family:var(--fmono);font-size:10px;letter-spacing:.3px;color:var(--muted);margin:7px 0 10px;}
+  .st{font-family:var(--fmono);font-size:8.5px;letter-spacing:1.5px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);display:inline-block;text-transform:uppercase;}
+  .st.plan{color:var(--accent);border-color:var(--accent);}
+  .st.live{background:var(--ink);color:var(--bg);}
+  .pbar{height:6px;border:1px solid var(--line);border-radius:6px;overflow:hidden;}
+  .pbar i{display:block;height:100%;background:var(--ink);}
+  .prow{display:flex;justify-content:space-between;font-family:var(--fmono);font-size:9px;letter-spacing:1.5px;color:var(--muted);margin-top:6px;}
+  .kcard.add{border-style:dashed;background:transparent;justify-content:center;align-items:center;display:flex;gap:8px;font-family:var(--fmono);font-size:11px;letter-spacing:1.5px;color:var(--muted);cursor:pointer;padding:18px 12px;}
+  .kcard.add:hover{background:var(--hair);transform:translate(-2px,-2px);box-shadow:3px 3px 0 var(--line);color:var(--ink);}
+
+  /* ============ TASK LISTS ============ */
+  .work-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .work-grid .list-panel.wide{grid-column:1 / -1;}
+  .list-panel{border:1px solid var(--line);border-radius:14px;background:var(--card);backdrop-filter:blur(8px);padding:16px;transition:all .18s;}
+  .lp-h{display:flex;align-items:center;gap:11px;margin-bottom:6px;}
+  .lp-h .L{width:38px;height:38px;border:1px solid var(--line);border-radius:11px;display:flex;align-items:center;justify-content:center;font-family:var(--fdot);font-size:24px;flex:0 0 auto;}
+  .lp-h .n{font-family:var(--fmono);font-size:12px;letter-spacing:2.5px;text-transform:uppercase;}
+  .lp-h .zh{font-size:12px;color:var(--muted);margin-top:2px;}
+  .lp-h .c{margin-left:auto;font-family:var(--fmono);font-size:9.5px;letter-spacing:1px;color:var(--muted);}
+  .lp-tabs{display:flex;gap:8px;margin:12px 0 10px;}
+  .lp-tabs .chip{padding:5px 11px;font-size:9.5px;}
+
+  .tl{list-style:none;min-height:60px;}
+  .tl li{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px dashed var(--hair);font-size:13.2px;}
+  .tl li:last-child{border-bottom:none;}
+  .tl li.empty{font-family:var(--fmono);font-size:10px;letter-spacing:1.5px;color:var(--muted);padding:18px 0;justify-content:center;text-transform:uppercase;}
+  .cb{width:16px;height:16px;border:1.5px solid var(--line);border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--bg);flex:0 0 auto;transition:all .12s;}
+  .cb.on{background:var(--ink);}
+  .tl li .txt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tl li.done .txt{text-decoration:line-through;color:var(--muted);}
+  .tmeta{font-family:var(--fmono);font-size:9px;letter-spacing:1px;color:var(--muted);white-space:nowrap;margin-right:4px;}
+  .del{margin-left:auto;color:var(--muted);cursor:pointer;font-family:var(--fmono);font-size:11px;opacity:0;transition:opacity .12s;flex:0 0 auto;}
+  .tl li:hover .del{opacity:1;}
+  .add-row{display:flex;gap:8px;margin-top:12px;align-items:center;}
+  .add-row input[type="text"]{flex:1;font-family:var(--fmono);font-size:12px;background:transparent;border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--ink);outline:none;}
+  .add-row input[type="date"]{font-family:var(--fmono);font-size:11px;background:transparent;border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--ink);outline:none;}
+  .add-row select{font-family:var(--fmono);font-size:10px;letter-spacing:.5px;background:transparent;border:1px solid var(--line);border-radius:10px;padding:8px 8px;color:var(--ink);outline:none;cursor:pointer;}
+  .add-row button{width:40px;border:1px solid var(--line);background:var(--ink);color:var(--bg);border-radius:10px;font-size:17px;cursor:pointer;transition:all .15s;}
+  .add-row button:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--line);}
+
+  /* ============ INSPIRATION TIMELINE ============ */
+  .insp-soft{
+    background-color:rgba(255,249,242,.85);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E");
+    backdrop-filter:blur(16px) saturate(115%);border:1px solid rgba(242,200,160,.55);border-radius:18px;padding:22px;color:#4A3728;transition:all .3s;
+    box-shadow:0 8px 30px rgba(216,169,139,.12);
+  }
+  .insp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+  .insp-chips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+  .insp-chip{font-family:var(--fmono);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;padding:6px 14px;border-radius:20px;border:1px solid rgba(74,55,40,.18);background:transparent;color:#806858;cursor:pointer;transition:all .15s;}
+  .insp-chip:hover{border-color:#D8A98B;color:#4A3728;}
+  .insp-chip.active{background:#fff;border-color:#D8A98B;color:#4A3728;}
+  .insp-title{font-family:var(--fdot);font-size:18px;letter-spacing:1px;}
+  .insp-addbtn{font-family:var(--fmono);font-size:11px;letter-spacing:1.5px;padding:10px 18px;border:1px solid #4A3728;background:#4A3728;color:#FFF8F0;border-radius:20px;cursor:pointer;transition:all .15s;}
+  .insp-addbtn:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 #D8A98B;}
+  .timeline{position:relative;padding-left:24px;}
+  .timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:#F2C8A0;border-radius:1px;}
+  .tl-item{position:relative;margin-bottom:22px;display:flex;gap:16px;}
+  .tl-dot{position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:#FFF9F2;border:2px solid #F2C8A0;box-shadow:0 0 0 2px #FFF9F2;z-index:1;}
+  .tl-card{flex:1;background:#fff;border:1px solid #F2C8A0;border-radius:14px;padding:14px 16px;box-shadow:0 2px 10px rgba(74,55,40,.05);position:relative;overflow:hidden;cursor:pointer;transition:transform .12s,box-shadow .12s;}
+  .tl-card:hover{transform:translate(-1px,-1px);box-shadow:0 4px 16px rgba(74,55,40,.12);}
+  .tl-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#D8A98B;}
+  .tl-card.film::before{background:#E8A87C;}
+  .tl-card.food::before{background:#F0B894;}
+  .tl-meta{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+  .tl-date{font-family:var(--fmono);font-size:10px;letter-spacing:1px;color:#806858;}
+  .tl-tag{font-family:var(--fmono);font-size:9px;letter-spacing:1.2px;text-transform:uppercase;padding:3px 9px;border-radius:12px;background:#D8A98B;color:#fff;}
+  .tl-tag.film{background:#E8A87C;}
+  .tl-tag.food{background:#F0B894;color:#4A3728;}
+  .tl-title{font-size:14px;font-weight:600;color:#4A3728;margin-bottom:4px;}
+  .tl-text{font-size:13px;line-height:1.55;color:#4A3728;word-break:break-word;margin-bottom:8px;}
+  .tl-media{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-top:8px;}
+  .tl-thumb{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #F2C8A0;cursor:pointer;transition:transform .15s;}
+  .tl-thumb:hover{transform:scale(1.04);}
+  .tl-link{font-family:var(--fmono);font-size:10px;letter-spacing:.5px;color:#806858;display:inline-flex;align-items:center;gap:4px;text-decoration:none;border:1px solid #F2C8A0;border-radius:8px;padding:5px 9px;background:#FFF8F0;}
+  .tl-link:hover{background:#F2C8A0;color:#4A3728;}
+  .tl-del{position:absolute;top:10px;right:10px;width:22px;height:22px;border:1px solid #F2C8A0;border-radius:50%;background:#fff;color:#806858;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;opacity:0;transition:opacity .12s;z-index:2;}
+  .tl-edit{position:absolute;top:10px;right:40px;width:22px;height:22px;border:1px solid #F2C8A0;border-radius:50%;background:#fff;color:#806858;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;opacity:0;transition:opacity .12s;z-index:2;}
+  .tl-card:hover .tl-del{opacity:1;}
+  .tl-card:hover .tl-edit{opacity:1;}
+  .tl-empty{text-align:center;font-family:var(--fmono);font-size:11px;letter-spacing:1px;color:#806858;padding:28px 0;}
+
+  .modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;}
+  .modal.show{display:flex;}
+  .modal-back{position:absolute;inset:0;background:rgba(20,20,20,.45);backdrop-filter:blur(3px);}
+  .modal-card{position:relative;background:#FFF8F0;border:1px solid #F2C8A0;border-radius:18px;padding:22px;width:min(420px,90vw);box-shadow:0 12px 40px rgba(74,55,40,.18);display:flex;flex-direction:column;gap:12px;color:#4A3728;}
+  .modal-h{font-family:var(--fdot);font-size:20px;letter-spacing:1px;margin-bottom:4px;}
+  .cat-pick{display:flex;gap:10px;flex-wrap:wrap;}
+  .cat-opt{flex:1;font-family:var(--fmono);font-size:11px;letter-spacing:1px;padding:10px;border:1px solid #F2C8A0;border-radius:12px;background:#fff;color:#4A3728;cursor:pointer;transition:all .12s;}
+  .cat-opt.book:hover,.cat-opt.book.active{background:#D8A98B;color:#fff;border-color:#D8A98B;}
+  .cat-opt.film:hover,.cat-opt.film.active{background:#E8A87C;color:#fff;border-color:#E8A87C;}
+  .cat-opt.food:hover,.cat-opt.food.active{background:#F0B894;color:#4A3728;border-color:#F0B894;}
+  .modal-card input,.modal-card textarea{font-family:var(--fbody);font-size:13px;background:#fff;border:1px solid #F2C8A0;border-radius:10px;padding:10px 12px;color:#4A3728;outline:none;}
+  .modal-card textarea{min-height:90px;resize:vertical;line-height:1.5;}
+  .modal-card .file-btn{font-family:var(--fmono);font-size:11px;padding:9px 12px;border:1px dashed #F2C8A0;border-radius:10px;text-align:center;cursor:pointer;color:#806858;background:#fff;}
+  .modal-card .file-btn:hover{background:#F2C8A0;color:#4A3728;}
+  .img-hint{font-family:var(--fmono);font-size:9px;letter-spacing:.5px;color:#806858;line-height:1.4;}
+  .modal-card input[type="file"]{display:none;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:4px;}
+  .btn-secondary,.btn-primary{font-family:var(--fmono);font-size:11px;letter-spacing:1px;padding:9px 16px;border-radius:20px;cursor:pointer;border:1px solid #4A3728;}
+  .btn-secondary{background:transparent;color:#4A3728;}
+  .btn-primary{background:#4A3728;color:#FFF8F0;}
+
+  .lightbox{display:none;position:fixed;inset:0;z-index:110;align-items:center;justify-content:center;background:rgba(20,20,20,.85);cursor:pointer;padding:16px;}
+  .lightbox.show{display:flex;}
+  .lightbox img{max-width:92vw;max-height:92vh;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.35);}
+
+  /* ============ CALENDAR ============ */
+  .cal{border:1px solid var(--line);border-radius:14px;background:var(--card);backdrop-filter:blur(8px);padding:18px;transition:all .3s;position:relative;}
+  .cal-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;}
+  .cal-h .m{font-family:var(--fdot);font-size:30px;letter-spacing:1px;}
+  .cal-h .y{font-family:var(--fmono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .dow{font-family:var(--fmono);font-size:9.5px;letter-spacing:1.5px;color:var(--muted);text-align:center;padding:4px 0;}
+  .cell{min-height:46px;border:1px solid var(--hair);border-radius:11px;display:flex;align-items:center;justify-content:center;font-family:var(--fmono);font-size:12.5px;position:relative;transition:all .12s;cursor:pointer;}
+  .cell:hover{border-color:var(--line);transform:translateY(-1px);}
+  .cell.today{background:var(--ink);color:var(--bg);border-color:var(--line);font-weight:600;}
+  .dots{position:absolute;bottom:5px;display:flex;gap:3px;}
+  .dots i{width:5px;height:5px;border-radius:50%;}
+  .dot-extra{background:var(--ink);}
+  .dot-monthly{border:1.5px solid var(--ink);background:transparent;box-sizing:border-box;}
+  .dot-life{background:var(--accent);}
+  html[data-theme="dark"] .dot-monthly{border-color:var(--ink);}
+  .legend{font-family:var(--fmono);font-size:10px;letter-spacing:.5px;color:var(--muted);margin-top:14px;line-height:1.9;}
+  .legend b{color:var(--accent);font-weight:500;}
+  .cal-tip{
+    position:absolute;z-index:20;border:1px solid var(--line);border-radius:12px;background:var(--card);backdrop-filter:blur(12px);
+    padding:10px 12px;font-family:var(--fmono);font-size:10px;letter-spacing:.5px;min-width:160px;display:none;
+    box-shadow:4px 4px 0 var(--line);
+  }
+  .cal-tip .tip-h{text-transform:uppercase;color:var(--muted);margin-bottom:6px;border-bottom:1px dashed var(--hair);padding-bottom:4px;}
+  .cal-tip .tip-i{display:flex;align-items:center;gap:6px;margin:3px 0;}
+  .cal-tip .tip-i::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ink);}
+  .cal-tip .tip-i.life::before{background:var(--accent);}
+  .cal-tip .tip-i.monthly::before{background:transparent;border:1.5px solid var(--ink);}
+
+  /* ============ ANALYSIS ============ */
+  .analysis{margin-top:8px;}
+  .mini{list-style:none;margin-top:10px;max-height:90px;overflow:auto;padding-right:4px;}
+  .mini li{font-family:var(--fmono);font-size:9.5px;letter-spacing:.3px;color:var(--muted);margin-bottom:5px;display:flex;gap:8px;}
+  .mini li .dd{margin-left:auto;color:var(--accent);}
+  .chart-wrap{border:1px solid var(--line);border-radius:14px;background:var(--card);backdrop-filter:blur(8px);padding:16px;margin-top:14px;}
+  .chart-head{font-family:var(--fmono);font-size:10px;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;}
+  .chart{display:flex;align-items:flex-end;gap:10px;height:130px;}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .bar-track{width:100%;flex:1;background:transparent;border:1px solid var(--line);border-radius:10px;position:relative;overflow:hidden;}
+  .bar-fill{position:absolute;bottom:0;left:0;right:0;background:var(--ink);transition:height .5s ease;}
+  .bar-lbl{font-family:var(--fmono);font-size:9px;letter-spacing:1px;color:var(--muted);}
+  .bar-val{font-family:var(--fdot);font-size:14px;}
+
+  .foot{font-family:var(--fmono);font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:34px;text-align:center;line-height:1.9;}
+
+  @media (max-width:920px){
+    .feed,.fin-grid,.work-grid,.lists,.kanban,.skill-grid{grid-template-columns:1fr;}
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .analysis .stats{grid-template-columns:1fr;}
+    .eq{display:none;}
+    .bh h2{font-size:30px;}
+    .add-row{flex-wrap:wrap;}
+    .add-row input[type="text"]{width:100%;flex:none;}
+    .insp-form textarea,.insp-form input[type="url"]{width:100%;flex:none;}
+    .insp-form select,.insp-form .file-btn,.insp-form button{flex:1;}
+    .topbar{flex-wrap:wrap;gap:10px;padding:10px 12px;}
+    .clock{display:none;}
+    .tabs{margin-left:0;width:100%;justify-content:flex-end;}
+    .insp-soft{padding:16px;}
+    .timeline{padding-left:18px;}
+    .tl-card{padding:12px 14px;}
+    .tl-thumb{width:100%;height:auto;aspect-ratio:16/10;}
+    .tl-del,.tl-edit{opacity:1;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="brand">
+      <span class="nm">DAILY.WINDOW</span>
+      <span class="live"><i></i>LIVE</span>
+      <span class="eq"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-board="b1">01 · Daily Window</div>
+      <div class="tab" data-board="b2">02 · Life &amp; Work</div>
+      <div class="tab" data-board="b3">03 · Inspiration</div>
+    </div>
+    <div class="clock">
+      <b id="clk">--:--:--</b>
+      <span id="datestr">2026.08.17 MON</span>
+    </div>
+    <button id="themeBtn" title="切换明暗主题"></button>
+    <button id="syncBtn" title="在线同步设置">⇄</button>
+    <button id="newsRefresh" title="刷新资讯（AI资讯/财务联网更新）">↻</button>
+    <span id="syncDot" class="sync-dot" title="同步状态"></span>
+  </div>
+
+  <!-- TICKER -->
+  <div class="mq"><div class="mq-track" id="mqTrack"></div></div>
+
+  <!-- ================= BOARD 1 ================= -->
+  <section class="board active" id="b1">
+    <div class="bh rv">
+      <div class="tag">BOARD 01 — 每日窗口</div>
+      <h2>DAILY WINDOW</h2>
+      <div class="sub">AI SIGNAL FLOW × FINANCE OVERVIEW — 数据更新于 2026.08.17 · 联网抓取快照</div>
+    </div>
+
+    <div class="stats rv">
+      <div class="stat"><div class="v" id="statAi">00</div><div class="l">AI Signals</div></div>
+      <div class="stat"><div class="v" id="statFin">00</div><div class="l">Finance Cards</div></div>
+      <div class="stat"><div class="v" id="statProj">00</div><div class="l">AI Projects</div></div>
+      <div class="stat"><div class="v" id="statTodo">00</div><div class="l">Open Tasks</div></div>
+    </div>
+
+    <div class="sec rv">
+      <span class="no">01</span><span class="t">AI Signal Flow</span>
+      <span class="rule"></span><span class="meta">大模型/算法 · 产品发布 · 行业政策</span>
+    </div>
+    <div class="chips rv" id="aiChips">
+      <span class="chip active" data-cat="all">All</span>
+      <span class="chip" data-cat="breakthrough">Model / Algo</span>
+      <span class="chip" data-cat="product">Product</span>
+      <span class="chip" data-cat="policy">Policy</span>
+    </div>
+    <div class="feed rv" id="aiFeed"></div>
+
+    <div class="sec rv">
+      <span class="no">02</span><span class="t">Finance Overview</span>
+      <span class="rule"></span><span class="meta">国内财税政策 · 国际经济形势</span>
+    </div>
+    <div class="fin-grid rv" id="finGrid"></div>
+
+    <div class="sec rv">
+      <span class="no">03</span><span class="t">Skill Picks</span>
+      <span class="rule"></span><span class="meta">GitHub 高星工具 · 点击卡片跳转仓库</span>
+    </div>
+    <div class="chips rv" id="skillChips"></div>
+    <div class="rv" style="margin:10px 0 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span class="chip" id="skillRefresh" style="cursor:pointer;color:var(--accent);border-color:var(--accent);">↻ 刷新趋势榜单</span>
+      <span class="skill-note" id="skillNote"></span>
+    </div>
+    <div class="skill-grid rv" id="skillGrid"></div>
+
+    <div class="sec rv">
+      <span class="no">04</span><span class="t">平台通告</span>
+      <span class="rule"></span><span class="meta">电商新规 · 整改通知 · 点击卡片查看官方原文</span>
+    </div>
+    <div class="chips rv" id="platChips">
+      <span class="chip active" data-p="all">全部</span>
+      <span class="chip" data-p="douyin">抖音</span>
+      <span class="chip" data-p="xhs">小红书</span>
+      <span class="chip" data-p="channels">视频号</span>
+      <span class="chip" data-p="taobao">淘宝</span>
+      <span class="chip" data-p="xingtu">星图</span>
+    </div>
+    <div class="plat-grid rv" id="platGrid"></div>
+    <div class="plat-note rv" id="platNote">数据快照 2026.09.04 · 整理自各平台官方公告与规则中心；点击卡片在新标签打开官方 / 权威来源查看原文</div>
+
+    <div class="foot">NOTHING-STYLE DAILY WINDOW · DATA SNAPSHOT 2026.09.04<br>内容由公开资讯整理，仅供参考</div>
+  </section>
+
+  <!-- ================= BOARD 2 ================= -->
+  <section class="board" id="b2">
+    <div class="bh rv">
+      <div class="tag">BOARD 02 — 工作 &amp; 生活</div>
+      <h2>LIFE &amp; WORK</h2>
+      <div class="sub">PLAY → PROJECTS → WORK → LIFE → CALENDAR → ANALYSIS</div>
+    </div>
+
+    <!-- WOODFISH · 电子木鱼 -->
+    <div class="muyu-box rv">
+      <div class="muyu-l">
+        <div>
+          <div class="muyu-title">WOODFISH · 电子木鱼</div>
+          <div class="muyu-sub">点击 / 回车 敲击 · 功德 +1</div>
+          <div class="muyu-count" id="muyuCount">功德 ×0</div>
+        </div>
+        <span class="muyu-sound" id="muyuSound">SOUND : OFF</span>
+      </div>
+      <div class="muyu-stage" id="muyuStage">
+        <svg class="muyu-svg" id="muyuSvg" viewBox="0 0 300 240" role="button" tabindex="0" aria-label="电子木鱼，点击敲击">
+          <!-- 地面接触阴影 -->
+          <ellipse class="muyu-shadow" cx="150" cy="222" rx="92" ry="8"/>
+          <!-- 木鱼身体（第2版实心立体感） -->
+          <g class="muyu-body">
+            <path class="ink" d="M40,205 C40,140 75,80 150,74 C225,80 260,140 260,205 C260,213 252,218 150,218 C48,218 40,213 40,205 Z"/>
+            <!-- 顶部高光 -->
+            <path class="hl" d="M86,116 C104,100 146,94 174,102 C156,106 126,110 108,122 C98,128 90,124 86,116 Z"/>
+            <!-- 开口缝（镂空） -->
+            <path class="hole" d="M78,162 C92,136 138,124 168,132 C160,156 130,174 98,174 C88,174 76,170 78,162 Z"/>
+            <!-- 缝内阴影（凹陷感） -->
+            <path class="shade" d="M86,164 C100,142 140,132 164,138 C156,158 130,172 102,172 C94,172 88,168 86,164 Z"/>
+          </g>
+          <!-- 木槌：球头在木鱼正上方，敲击时向下击打木鱼顶部 -->
+          <g class="muyu-mallet">
+            <line class="stick" x1="150" y1="60" x2="250" y2="14"/>
+            <circle class="ink" cx="150" cy="60" r="17"/>
+            <circle class="hl" cx="143" cy="53" r="5"/>
+          </g>
+        </svg>
+        <div class="muyu-fx" id="muyuFx"></div>
+      </div>
+    </div>
+
+    <!-- 01 PLAY -->
+    <div class="sec rv"><span class="no">01</span><span class="t">Play / Glass</span><span class="rule"></span><span class="meta">鼠标划一划</span></div>
+    <div class="hero rv" id="glassHero">
+      <div class="hero-bg">
+        <div class="big">HELLO :)</div>
+        <div class="small">2026.08.17 — MAKE TODAY COUNT</div>
+      </div>
+      <canvas id="glassCanvas"></canvas>
+      <div class="rec"><i></i>REC</div>
+      <div class="hint" id="glassHint">◉ MOVE CURSOR TO WIPE</div>
+    </div>
+
+    <!-- 02 PROJECTS -->
+    <div class="sec rv"><span class="no">02</span><span class="t">AI Projects</span><span class="rule"></span><span class="meta">拖拽卡片可换列</span></div>
+    <div class="kanban rv" id="kanban"></div>
+
+    <!-- 03 WORK -->
+    <div class="sec rv"><span class="no">03</span><span class="t">Work</span><span class="rule"></span><span class="meta">额外任务 · 月度日常工作</span></div>
+    <div class="work-grid rv">
+      <div class="list-panel">
+        <div class="lp-h">
+          <span class="L">E</span>
+          <div><div class="n">Extra</div><div class="zh">额外任务</div></div>
+          <span class="c" id="extraCount">0 OPEN</span>
+        </div>
+        <div class="lp-tabs" data-group="extra">
+          <span class="chip active" data-filter="pending">待完成</span>
+          <span class="chip" data-filter="done">已完成</span>
+        </div>
+        <ul class="tl" id="extraList"></ul>
+        <div class="add-row">
+          <input type="text" id="extraInput" placeholder="ADD EXTRA TASK…" />
+          <input type="date" id="extraDate" />
+          <select id="extraRecur"><option value="once">ONCE</option><option value="daily">DAILY</option><option value="weekly">WEEKLY</option><option value="monthly">MONTHLY</option></select>
+          <button data-add="extra">+</button>
+        </div>
+      </div>
+      <div class="list-panel">
+        <div class="lp-h">
+          <span class="L">M</span>
+          <div><div class="n">Monthly</div><div class="zh">月度日常工作</div></div>
+          <span class="c" id="monthlyCount">0 OPEN</span>
+        </div>
+        <div class="lp-tabs" data-group="monthly">
+          <span class="chip active" data-filter="pending">待完成</span>
+          <span class="chip" data-filter="done">已完成</span>
+        </div>
+        <ul class="tl" id="monthlyList"></ul>
+        <div class="add-row">
+          <input type="text" id="monthlyInput" placeholder="ADD MONTHLY TASK…" />
+          <input type="date" id="monthlyDate" />
+          <select id="monthlyRecur"><option value="once">ONCE</option><option value="daily">DAILY</option><option value="weekly">WEEKLY</option><option value="monthly" selected>MONTHLY</option></select>
+          <button data-add="monthly">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 LIFE -->
+    <div class="sec rv"><span class="no">04</span><span class="t">Life</span><span class="rule"></span><span class="meta">日常内容</span></div>
+    <div class="work-grid rv">
+      <div class="list-panel wide">
+        <div class="lp-h">
+          <span class="L">L</span>
+          <div><div class="n">Daily</div><div class="zh">日常内容</div></div>
+          <span class="c" id="lifeCount">0 OPEN</span>
+        </div>
+        <div class="lp-tabs" data-group="life">
+          <span class="chip active" data-filter="pending">待完成</span>
+          <span class="chip" data-filter="done">已完成</span>
+        </div>
+        <ul class="tl" id="lifeList"></ul>
+        <div class="add-row">
+          <input type="text" id="lifeInput" placeholder="ADD LIFE TASK…" />
+          <input type="date" id="lifeDate" />
+          <select id="lifeRecur"><option value="once" selected>ONCE</option><option value="daily">DAILY</option><option value="weekly">WEEKLY</option><option value="monthly">MONTHLY</option></select>
+          <button data-add="life">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 06 CALENDAR -->
+    <div class="sec rv"><span class="no">05</span><span class="t">Calendar</span><span class="rule"></span><span class="meta">可选择展示应完成事项</span></div>
+    <div class="cal rv" id="cal">
+      <div class="chips" id="calFilter" style="margin-bottom:14px;">
+        <span class="chip active" data-filter="all">All</span>
+        <span class="chip" data-filter="extra">Extra</span>
+        <span class="chip" data-filter="monthly">Monthly</span>
+        <span class="chip" data-filter="life">Life</span>
+      </div>
+      <div id="calBody"></div>
+      <div class="cal-tip" id="calTip"><div class="tip-h"></div><div class="tip-body"></div></div>
+    </div>
+
+    <!-- 07 ANALYSIS -->
+    <div class="sec rv"><span class="no">06</span><span class="t">Analysis</span><span class="rule"></span><span class="meta">本周待完成 / 已完成 / 逾期</span></div>
+    <div class="analysis rv">
+      <div class="stats" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat">
+          <div class="v" id="anaPending">00</div>
+          <div class="l">本周待完成</div>
+          <ul class="mini" id="listPending"></ul>
+        </div>
+        <div class="stat">
+          <div class="v" id="anaDone">00</div>
+          <div class="l">本周已完成</div>
+          <ul class="mini" id="listDone"></ul>
+        </div>
+        <div class="stat">
+          <div class="v" id="anaOverdue">00</div>
+          <div class="l">已逾期</div>
+          <ul class="mini" id="listOverdue"></ul>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-head">Weekly Completion · 本周完成曲线</div>
+        <div class="chart" id="chart"></div>
+      </div>
+    </div>
+
+    <div class="foot">WORK / LIFE TASK STATE SAVED LOCALLY (localStorage)<br>NOTHING-STYLE BOARD 02</div>
+  </section>
+
+  <!-- ================= BOARD 3 ================= -->
+  <section class="board" id="b3">
+    <div class="bh rv">
+      <div class="tag">BOARD 03 — 灵感收藏</div>
+      <h2>INSPIRATION</h2>
+      <div class="sub">书本 · 影音 · 美食 · 记录让生活变柔软的碎片</div>
+    </div>
+
+    <div class="insp-soft rv">
+      <div class="insp-head">
+        <div class="insp-title">书本 / 影音 / 美食</div>
+        <button class="insp-addbtn" id="inspAddBtn">+ 新增灵感</button>
+      </div>
+      <div class="insp-chips" id="inspChips">
+        <span class="insp-chip active" data-filter="all">全部</span>
+        <span class="insp-chip" data-filter="book">书本</span>
+        <span class="insp-chip" data-filter="film">影音</span>
+        <span class="insp-chip" data-filter="food">美食</span>
+      </div>
+      <div class="timeline" id="inspTimeline"></div>
+    </div>
+
+    <div class="foot" style="margin-top:28px;">INSPIRATION COLLECTION SAVED LOCALLY (localStorage)<br>NOTHING-STYLE BOARD 03</div>
+  </section>
+
+  <!-- Inspiration Modal -->
+  <div class="modal" id="inspModal">
+    <div class="modal-back" id="inspModalBack"></div>
+    <div class="modal-card">
+      <div class="modal-h">新增灵感</div>
+      <div class="cat-pick" id="inspCatPick">
+        <button class="cat-opt book active" data-cat="book">书本</button>
+        <button class="cat-opt film" data-cat="film">影音</button>
+        <button class="cat-opt food" data-cat="food">美食</button>
+      </div>
+      <input type="date" id="inspModalDate" />
+      <input type="text" id="inspModalTitle" placeholder="名称（选填）" />
+      <textarea id="inspModalThought" placeholder="感悟 / 短句 / 素材..."></textarea>
+      <input type="url" id="inspModalUrl" placeholder="网页链接（选填）" />
+      <label class="file-btn"><input type="file" id="inspModalImg" accept="image/*" />+ 上传图片</label>
+      <div class="img-hint" id="inspImgHint" style="display:none;"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="inspCancel">取消</button>
+        <button class="btn-primary" id="inspSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox"><img id="lightboxImg" src="" alt="" /></div>
+
+  <!-- ================= SYNC SETTINGS POPOVER ================= -->
+  <div class="sync-pop" id="syncPop">
+    <div class="sp-h">SYNC · 在线同步</div>
+    <label>同步方式
+      <select id="syncBackend">
+        <option value="github">GitHub（推荐·永久免费·免VPN·国内直连）</option>
+        <option value="edgeone">EdgeOne 同源 /data（需自建函数，国内站仅试用）</option>
+      </select>
+    </label>
+    <div id="githubFields">
+      <label>GitHub 仓库（owner/repo，建议用私有仓库存数据）
+        <input type="text" id="syncRepo" placeholder="yourname/workbench-data" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      </label>
+      <label>数据文件路径（仓库内）
+        <input type="text" id="syncPath" placeholder="workbench.json" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      </label>
+      <label>访问令牌 Token（PAT，需 repo 权限，仅存本地）
+        <input type="password" id="syncToken" placeholder="ghp_xxx 或 github_pat_xxx" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      </label>
+    </div>
+    <div id="edgeoneFields" style="display:none">
+      <label>同步地址 URL（留空 = 同源 /data）
+        <input type="url" id="syncUrl" placeholder="留空则用同源 /data" />
+      </label>
+      <label>密钥 Key（可选，需与函数 SECRET 一致）
+        <input type="text" id="syncKey" placeholder="eyJhbGciOi..." />
+      </label>
+    </div>
+    <div class="sp-btns">
+      <button id="syncTest">测试</button>
+      <button id="syncSave" class="primary">保存并同步</button>
+    </div>
+    <div class="sp-btns">
+      <button id="syncExport">导出备份</button>
+      <button id="syncImport">导入恢复</button>
+      <button id="syncPasteToggle">粘贴 JSON</button>
+      <input type="file" id="syncImportFile" accept="application/json,.json" hidden />
+    </div>
+    <div id="syncPasteBox" style="display:none;margin-top:10px;">
+      <textarea id="syncPasteArea" rows="4" placeholder="若文件导入失败，可把备份 JSON 全文粘贴到这里，点「粘贴导入」"></textarea>
+      <div class="sp-btns" style="margin-top:8px;">
+        <button id="syncPasteCancel">取消</button>
+        <button id="syncPasteImport" class="primary">粘贴导入</button>
+      </div>
+    </div>
+    <div class="sp-divider"></div>
+    <div class="sp-sub">📦 数据码（最稳搬运：复制一串字母数字即可，微信转发也不会损坏）</div>
+    <div class="sp-btns">
+      <button id="syncCodeExport">① 生成数据码</button>
+      <button id="syncCodeCopy">② 复制全部</button>
+      <button id="syncCodeImport" class="primary">③ 导入数据码</button>
+    </div>
+    <div id="syncCodeChunks"></div>
+    <textarea id="syncCodeArea" rows="3" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="电脑端点「① 生成数据码」会生成数据码并自动分成几段；手机端把【所有段按任意顺序】粘贴进来，点「③ 导入数据码」即可恢复全部数据。"></textarea>
+    <div class="sp-btns">
+      <button id="syncSnap">↩ 回滚本地快照</button>
+      <span id="snapInfo" class="snap-info"></span>
+    </div>
+    <div class="sp-tip">推荐 GitHub 模式：数据存于你的私有仓库文件，浏览器直连 api.github.com 读写，永久免费、国内直连、无需 VPN。Token 仅存本地。仍保留「导出备份 / 导入恢复 / 回滚本地快照 / 数据码」四道兜底。</div>
+  </div>
+
+</div>
+
+<script>
+/* ================= THEME ================= */
+const rootEl=document.documentElement;
+function setTheme(t){rootEl.setAttribute('data-theme',t);localStorage.setItem('wb_theme',t);updateFrost();syncDebounced();}
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  setTheme(rootEl.getAttribute('data-theme')==='dark'?'light':'dark');
+});
+
+/* ================= CLOUD SYNC =================
+   两种后端：
+   1) github  —— 浏览器直连 api.github.com（无需自建服务器），永久免费、国内直连、免 VPN。
+                 数据存于你的私有仓库文件，Token 仅存本地 localStorage。推荐。
+   2) edgeone —— 同源 Pages Function（/data），需自建 EdgeOne 函数+KV（国内站仅试用，注意有效期）。
+=============================================== */
+const SYNC_KEY='wb_sync';
+const DEFAULT_SYNC={backend:'github',repo:'',path:'workbench.json',token:'',url:'',key:''};
+let syncCfg=JSON.parse(localStorage.getItem(SYNC_KEY)||'null');
+if(!syncCfg || (syncCfg.url && syncCfg.url.includes('workers.dev'))){ syncCfg={...DEFAULT_SYNC}; }
+// 同步基础地址（edgeone 用）：绝对 URL 去掉末尾斜杠；url 空时返回 ''（同源相对路径）。
+function syncBase(){ return (syncCfg&&syncCfg.url) ? syncCfg.url.replace(/\/+$/,'') : ''; }
+// 是否能同步：github 需 token+repo；edgeone 需 url 或处于 http(s) 部署环境（本地 file:// 静默跳过）。
+function canSync(){
+  if(!syncCfg) return false;
+  if(syncCfg.backend==='github') return !!(syncCfg.token && syncCfg.repo);
+  return !!syncCfg.url || location.protocol==='http:'||location.protocol==='https:';
+}
+// GitHub UTF-8 ⇄ Base64（Content API 以 base64 传输文件内容）
+function ghB64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function ghUnb64(b64){ return decodeURIComponent(escape(atob(String(b64||'').replace(/\s+/g,'')))); }
+async function ghApi(method, path, body, token){
+  return fetch('https://api.github.com'+path, {
+    method,
+    headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},
+    body: body!==undefined ? JSON.stringify(body) : undefined
+  });
+}
+let syncTimer=null;
+function setSyncDot(s){const d=document.getElementById('syncDot');if(d)d.className='sync-dot'+(s?' '+s:'');}
+function toast(msg){
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';t.className='toast';document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200);
+}
+const SEED_EPOCH=1704067200000; // 2024-01-01：种子数据时间戳固定为旧时间，避免首次打开时把本地种子覆盖到云端真实数据
+function stampAll(){
+  // 仅给没有时间戳的条目补一个「不会赢过真实修改」的时间戳；真实修改应主动更新 _mts=Date.now()
+  projects.forEach(p=>{ if(!p._mts) p._mts = (p.createdAt||SEED_EPOCH); });
+  tasks.forEach(t=>{ if(!t._mts) t._mts = (t.createdAt||SEED_EPOCH); });
+  inspirations.forEach(i=>{ if(!i._mts) i._mts = (i.createdAt||SEED_EPOCH); });
+}
+function collectState(){
+  stampAll();
+  return {
+    v:2, ts:Date.now(),
+    projects: projects.map(p=>({id:p.id,name:p.name,state:p.state,pct:p.pct,note:p.note,_mts:p._mts})),
+    tasks: tasks.map(t=>({...t})),
+    inspiration: inspirations.map(i=>({...i})),
+    theme: rootEl.getAttribute('data-theme')
+  };
+}
+// 本地自动快照：每次保存/同步都备份一份到 wb_backup_v1，作为最后兜底（即使云端/同步异常也能一键回滚）
+const SNAP_KEY='wb_backup_v1';
+function snapshotLocal(){
+  try{ const d=collectState(); d._snapTs=Date.now(); localStorage.setItem(SNAP_KEY, JSON.stringify(d)); }catch(e){}
+}
+function snapInfo(){
+  const raw=localStorage.getItem(SNAP_KEY);
+  if(!raw) return '（暂无本地快照）';
+  try{ const d=JSON.parse(raw); const ts=d._snapTs||0; const t=new Date(ts);
+    const p=(d.projects||[]).length, k=(d.tasks||[]).length, i=(d.inspiration||[]).length;
+    const hh=String(t.getMonth()+1).padStart(2,'0')+'/'+String(t.getDate()).padStart(2,'0')+' '+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+    return '本地快照：'+hh+'（项目'+p+' / 任务'+k+' / 灵感'+i+'）';
+  }catch(e){ return '（快照损坏）'; }
+}
+// 条目级增量合并：两端数据取并集，同 id 冲突时保留 _mts 较大（最后修改）的一方，互不覆盖对方独有数据
+function mergeArr(local, remote){
+  const m = new Map(local.map(x=>[x.id, x]));
+  (remote||[]).forEach(r=>{
+    const l = m.get(r.id);
+    if(!l){ m.set(r.id, r); }                       // 云端独有 → 加入本地
+    else if((r._mts||0) > (l._mts||0)){ m.set(r.id, r); } // 云端更新 → 采用云端
+    // 否则保留本地（本地更新或持平）
+  });
+  return [...m.values()];
+}
+// 灵感按内容去重（种子用随机 id，跨设备初始化会产生不同 id 的同一条目 → 重复）
+function sigInsp(i){ return [(i.cat||''),(i.date||''),(i.title||'').trim(),(i.thought||'').trim()].join('|'); }
+function dedupeInsp(arr){
+  const m=new Map();
+  (arr||[]).forEach(x=>{
+    if(!x)return;
+    const s=sigInsp(x);
+    const e=m.get(s);
+    if(!e){ m.set(s,x); return; }
+    const eDel=!!e._deleted, xDel=!!x._deleted;
+    const eT=e._mts||e.createdAt||0, xT=x._mts||x.createdAt||0;
+    // 优先保留未删除的条目；都未删除或都删除，保留时间戳较新者
+    if(eDel && !xDel) m.set(s,x);
+    else if(!eDel && xDel){ /* keep existing active */ }
+    else if(xT>eT) m.set(s,x);
+  });
+  return [...m.values()];
+}
+function applyState(d){
+  if(Array.isArray(d.projects)) projects = mergeArr(projects, d.projects);
+  if(Array.isArray(d.tasks)) tasks = mergeArr(tasks, d.tasks);
+  if(Array.isArray(d.inspiration)) inspirations = dedupeInsp(mergeArr(inspirations, d.inspiration));
+  if(d.theme) setTheme(d.theme);
+  saveProj(); saveTasks(); saveInsp();
+  renderKanban(); renderAllLists(); renderCalendar(); renderTimeline();
+}
+let inSync=false; // 防重入：sync 内部触发的 save 不应再排程下一次 sync，避免无限循环
+function syncPush(silent){
+  if(!canSync())return;
+  if(inSync)return;
+  inSync=true;
+  setSyncDot('syncing');
+  if(syncCfg.backend==='github'){ ghSync(true, silent); }
+  else { edgeSync(true, silent); }
+}
+function syncPull(cb){
+  if(!canSync()){ if(cb)cb(false); return; }
+  setSyncDot('syncing');
+  if(syncCfg.backend==='github'){ ghSync(false, false, cb); }
+  else { edgeSync(false, false, cb); }
+}
+// ---------- EdgeOne 同源 /data 传输 ----------
+function edgeSync(push, silent, cb){
+  const url=syncBase()+'/data';
+  const body=push?JSON.stringify(collectState()):'{}';
+  const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),15000);
+  fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Workbench-Key':syncCfg.key||''},body,signal:ctrl.signal})
+    .then(r=>{ if(!r.ok)throw new Error('status '+r.status); return r.text(); })
+    .then(txt=>{
+      let d=null; try{ d=JSON.parse(txt); }catch(e){}
+      if(d&&(d.projects||d.tasks||d.inspiration)){ applyState(d); }
+      if(push&&!silent){ const p=(d.projects||[]).length,k=(d.tasks||[]).length,i=(d.inspiration||[]).length; toast('已与云端同步（云：项目'+p+'/任务'+k+'/灵感'+i+'）'); }
+      else if(!push){ toast('已从云端拉取'); }
+      setSyncDot('ok'); if(cb)cb(true);
+    })
+    .catch(e=>{ setSyncDot('err'); const m=(e.name==='AbortError')?'超时(15s)':(e.message||'网络错误'); if(!silent) toast((push?'同步失败：':'拉取失败：')+m); if(cb)cb(false); })
+    .finally(()=>{ clearTimeout(to); inSync=false; });
+}
+// ---------- GitHub 直连传输（浏览器↔api.github.com，无需服务器） ----------
+async function ghSync(push, silent, cb){
+  const repo=syncCfg.repo.trim(), path=(syncCfg.path||'workbench.json').trim(), token=syncCfg.token.trim();
+  try{
+    // 1) 取云端当前文件（含 sha；404 表示尚不存在）
+    let sha=null, remote=null;
+    const gr=await ghApi('GET','/repos/'+repo+'/contents/'+encodeURIComponent(path),undefined,token);
+    if(gr.ok){ const j=await gr.json(); sha=j.sha||null; try{ remote=JSON.parse(ghUnb64(j.content||'')); }catch(e){ remote=null; } }
+    else if(gr.status!==404){ throw new Error('GitHub '+gr.status); }
+    // 2) 云端有数据 → 先合并进本地（拉取）
+    if(remote&&(remote.projects||remote.tasks||remote.inspiration)){ applyState(remote); }
+    setSyncDot('ok');
+    if(!push){ if(!silent) toast('已从 GitHub 拉取'); if(cb)cb(true); return; }
+    // 3) 推送：把合并后的本地状态写回（带 sha 更新；并发冲突自动重试）
+    const content=ghB64(JSON.stringify(collectState()));
+    let attempt=0;
+    while(true){
+      const pr=await ghApi('PUT','/repos/'+repo+'/contents/'+encodeURIComponent(path),
+        {message:'workbench sync '+new Date().toISOString(), content, sha: sha||undefined}, token);
+      if(pr.ok){ if(!silent) toast('已与 GitHub 同步 ✓'); setSyncDot('ok'); if(cb)cb(true); break; }
+      if(pr.status===409 && attempt<2){ // 并发冲突：重新拉取最新 sha 再试
+        attempt++; const r2=await ghApi('GET','/repos/'+repo+'/contents/'+encodeURIComponent(path),undefined,token);
+        if(r2.ok){ const j2=await r2.json(); sha=j2.sha; try{ const rd=JSON.parse(ghUnb64(j2.content||'')); if(rd) applyState(rd); }catch(e){} }
+        continue;
+      }
+      throw new Error('GitHub '+pr.status);
+    }
+  }catch(e){
+    setSyncDot('err'); if(!silent) toast('GitHub 同步失败：'+(e.message||'网络错误')); console.warn('[sync] github failed:',e); if(cb)cb(false);
+  }finally{ inSync=false; }
+}
+// 后台自动同步（保存/改主题时触发）：静默，不弹窗，避免刷屏
+function syncDebounced(){ if(!canSync())return; if(inSync)return; clearTimeout(syncTimer); syncTimer=setTimeout(()=>syncPush(true),900); }
+// 同步设置弹窗
+const syncPop=document.getElementById('syncPop');
+document.getElementById('syncBtn').addEventListener('click',()=>{
+  const b=syncCfg?syncCfg.backend:'github';
+  document.getElementById('syncBackend').value=b;
+  document.getElementById('syncRepo').value=syncCfg?syncCfg.repo:'';
+  document.getElementById('syncPath').value=syncCfg?(syncCfg.path||'workbench.json'):'workbench.json';
+  document.getElementById('syncToken').value=syncCfg?syncCfg.token:'';
+  document.getElementById('syncUrl').value=syncCfg?syncCfg.url:'';
+  document.getElementById('syncKey').value=syncCfg?syncCfg.key:'';
+  toggleSyncFields();
+  document.getElementById('snapInfo').textContent=snapInfo();
+  syncPop.classList.toggle('open');
+});
+function toggleSyncFields(){
+  const b=document.getElementById('syncBackend').value;
+  document.getElementById('githubFields').style.display = b==='github'?'block':'none';
+  document.getElementById('edgeoneFields').style.display = b==='github'?'none':'block';
+}
+document.getElementById('syncBackend').addEventListener('change',toggleSyncFields);
+document.getElementById('syncSave').addEventListener('click',()=>{
+  const b=document.getElementById('syncBackend').value;
+  if(b==='github'){
+    syncCfg={backend:'github',repo:document.getElementById('syncRepo').value.trim(),path:document.getElementById('syncPath').value.trim()||'workbench.json',token:document.getElementById('syncToken').value.trim(),url:'',key:''};
+  }else{
+    syncCfg={backend:'edgeone',url:document.getElementById('syncUrl').value.trim(),key:document.getElementById('syncKey').value.trim(),repo:'',path:'workbench.json',token:''};
+  }
+  localStorage.setItem(SYNC_KEY,JSON.stringify(syncCfg));
+  syncPop.classList.remove('open');
+  inSync=false; // 保险：清掉可能的残留锁，保证这次手动同步一定执行
+  toast('配置已保存，正在同步…');
+  syncPush();
+});
+document.getElementById('syncTest').addEventListener('click',()=>{
+  const b=document.getElementById('syncBackend').value;
+  if(b==='github'){
+    const repo=document.getElementById('syncRepo').value.trim(), token=document.getElementById('syncToken').value.trim();
+    if(!repo||!token){ toast('请填写仓库与 Token'); return; }
+    setSyncDot('syncing');
+    ghApi('GET','/repos/'+repo+'/contents/'+encodeURIComponent((document.getElementById('syncPath').value.trim()||'workbench.json')),undefined,token)
+      .then(r=>{ setSyncDot(r.ok||r.status===404?'ok':'err'); toast(r.ok?'连接成功 ✓（仓库可访问）':(r.status===404?'连接成功 ✓（仓库可访问，数据文件待创建）':'连接异常：HTTP '+r.status)); })
+      .catch(e=>{ setSyncDot('err'); toast('连接失败：'+(e.message||'网络错误')); });
+  }else{
+    const url=document.getElementById('syncUrl').value.trim();
+    const key=document.getElementById('syncKey').value.trim();
+    const base=url?url.replace(/\/+$/,''):''; // 空 = 同源相对路径
+    setSyncDot('syncing');
+    const ctrl=new AbortController();
+    const to=setTimeout(()=>ctrl.abort(),15000);
+    fetch(base+'/data',{method:'POST',headers:{'Content-Type':'application/json','X-Workbench-Key':key},body:'{}',signal:ctrl.signal})
+      .then(r=>{ clearTimeout(to); if(r.ok){setSyncDot('ok');toast('连接成功 ✓（已通后端）');} else {setSyncDot('err');toast('连接异常：HTTP '+r.status);} })
+      .catch(e=>{ clearTimeout(to); setSyncDot('err'); toast('连接失败：'+(e.name==='AbortError'?'超时(15s)':(e.message||'网络错误'))); console.warn('[sync] test failed:',e); });
+  }
+});
+/* 导出备份：把当前本地数据下载成 JSON 文件（跨设备搬运 / 防误删兜底） */
+document.getElementById('syncExport').addEventListener('click',()=>{
+  const data=collectState();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='workbench-backup-'+todayStr()+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  toast('已导出本地备份（JSON）');
+});
+/* 导入恢复：读取备份 JSON，按 id+_mts 合并进本地（不覆盖本地更新），再同步云端 */
+function applyBackup(d){
+  if(!d || typeof d !== 'object') throw new Error('内容不是有效的 JSON 对象');
+  if(Array.isArray(d.projects)) projects=mergeArr(projects,d.projects);
+  if(Array.isArray(d.tasks)) tasks=mergeArr(tasks,d.tasks);
+  if(Array.isArray(d.inspiration)) inspirations=dedupeInsp(mergeArr(inspirations,d.inspiration));
+  if(d.theme) setTheme(d.theme);
+  saveProj(); saveTasks(); saveInsp();
+  renderKanban(); renderAllLists(); renderCalendar(); renderTimeline();
+  if(canSync()){ syncPush(true); toast('已从备份合并，并同步到云端'); }
+  else toast('已从备份合并到本地');
+}
+// 尽量宽容地解析 JSON：去 BOM、首尾多余字符、trailing comma、smart quotes 等
+function safeJsonParse(raw){
+  let s=String(raw||'').replace(/^\uFEFF/,'').trim();
+  if(!s) return {ok:false, error:'内容为空', preview:''};
+  const preview=(s.length>60?s.slice(0,30)+' … '+s.slice(-30):s);
+  const tryParse=(text)=>{ try{ return {ok:true, data:JSON.parse(text)}; }catch(e){ return {ok:false, error:e.message}; } };
+  let r=tryParse(s);
+  if(r.ok) return {ok:true, data:r.data, preview};
+  // 常见自动修复 1：去掉首尾非 JSON 包裹（如微信加的前缀后缀）
+  const start=Math.max(s.indexOf('{'), s.indexOf('['));
+  const end=Math.max(s.lastIndexOf('}'), s.lastIndexOf(']'));
+  if(start>=0 && end>start+1){ r=tryParse(s.slice(start,end+1)); if(r.ok) return {ok:true, data:r.data, preview}; }
+  // 常见自动修复 2：trailing commas
+  const noTrail=s.replace(/,(\s*[}\]])/g,'$1');
+  r=tryParse(noTrail); if(r.ok) return {ok:true, data:r.data, preview};
+  // 常见自动修复 3：smart quotes / single quotes（仅对简单 JSON 做兜底替换）
+  const norm=noTrail.replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/'/g,'"');
+  r=tryParse(norm); if(r.ok) return {ok:true, data:r.data, preview};
+  return {ok:false, error:r.error, preview};
+}
+function importFromText(raw){
+  const r=safeJsonParse(raw);
+  if(!r.ok){
+    toast('解析失败：'+r.error+'（内容：'+r.preview+'）');
+    console.warn('[import] parse failed:',r.error,'preview:',r.preview);
+    return false;
+  }
+  applyBackup(r.data);
+  return true;
+}
+// ===== 数据码：Crockford Base32（仅 0-9 + A-Z，解码无视大小写，彻底免疫手机自动大写/纠错改坏） =====
+const B32A='0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+function b32Enc(bytes){
+  let bits=0,val=0,out='';
+  for(let i=0;i<bytes.length;i++){ val=(val<<8)|bytes[i]; bits+=8; while(bits>=5){ out+=B32A[(val>>>(bits-5))&31]; bits-=5; } }
+  if(bits>0) out+=B32A[(val<<(5-bits))&31];
+  return out;
+}
+function b32Dec(str){
+  const m={}; for(let i=0;i<32;i++) m[B32A[i]]=i;
+  let bits=0,val=0,out=[];
+  for(const ch of str.toUpperCase()){
+    let v=m[ch];
+    if(v===undefined){ if(ch==='I'||ch==='L')v=1; else if(ch==='O')v=0; else continue; }
+    val=(val<<5)|v; bits+=5;
+    if(bits>=8){ out.push((val>>>(bits-8))&255); bits-=8; }
+  }
+  return Uint8Array.from(out);
+}
+function cksum(s){ let t=0; for(let i=0;i<s.length;i++) t=(t+s.charCodeAt(i))%100000; return String(t).padStart(5,'0'); }
+// 输出格式：长度.校验和.数据（均只含 0-9A-Z，大小写无感）
+function utf8ToB64(str){
+  const bytes=new TextEncoder().encode(str);
+  const s=b32Enc(bytes);
+  return s.length+'.'+cksum(s)+'.'+s;
+}
+function b64ToUtf8(b64){
+  let raw=String(b64||'').replace(/\s+/g,'').replace(/[^0-9A-Za-z.]/g,'').toUpperCase();
+  const d1=raw.indexOf('.'), d2=raw.indexOf('.',d1+1);
+  if(d1<0||d2<0) throw new Error('格式不对（缺少长度头）');
+  const len=parseInt(raw.slice(0,d1),10), ck=raw.slice(d1+1,d2), s=raw.slice(d2+1);
+  if(s.length!==len) throw new Error('数据不完整（收到'+s.length+' / 应为'+len+' 字符）—— 请确认所有段都粘进来了');
+  if(cksum(s)!==ck) throw new Error('数据被改坏（校验不符）—— 请重新生成并发送');
+  const bytes=b32Dec(s);
+  return new TextDecoder().decode(bytes);
+}
+let _lastCode='';
+const CHUNK_SIZE=1300;
+function copyText(txt){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(txt).then(()=>true,()=>false);
+  }
+  const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(ta); return Promise.resolve(true);
+}
+function makeChunk(seg,idx,total){
+  const wrap=document.createElement('div'); wrap.className='code-chunk';
+  const label=document.createElement('div'); label.className='code-chunk-label';
+  label.textContent='第 '+idx+' / '+total+' 段 · '+seg.length+' 字符（单独复制，分多条微信发送）';
+  const ta=document.createElement('textarea'); ta.readOnly=true; ta.rows=3; ta.value=seg; ta.className='code-chunk-ta';
+  const btn=document.createElement('button'); btn.textContent='复制这段'; btn.className='code-chunk-btn';
+  btn.addEventListener('click',()=>{ copyText(seg).then(ok=>toast(ok?'已复制第 '+idx+' 段 ✓':'复制失败，请手动长按选择复制')); });
+  wrap.appendChild(label); wrap.appendChild(ta); wrap.appendChild(btn);
+  return wrap;
+}
+document.getElementById('syncCodeExport').addEventListener('click',()=>{
+  try{
+    const data=collectState();
+    const code=utf8ToB64(JSON.stringify(data));
+    _lastCode=code;
+    const box=document.getElementById('syncCodeChunks'); box.innerHTML='';
+    const n=Math.max(1,Math.ceil(code.length/CHUNK_SIZE));
+    for(let i=0;i<n;i++) box.appendChild(makeChunk(code.slice(i*CHUNK_SIZE,(i+1)*CHUNK_SIZE), i+1, n));
+    toast('已生成数据码（共 '+code.length+' 字符，分 '+n+' 段）—— 每段单独复制、分多条微信发，手机端把【所有段按顺序】粘到一起导入');
+  }catch(e){ toast('生成失败：'+(e.message||'error')); }
+});
+document.getElementById('syncCodeCopy').addEventListener('click',()=>{
+  if(!_lastCode){ toast('请先点「① 生成数据码」'); return; }
+  copyText(_lastCode).then(ok=>toast(ok?'已复制全部数据码（如被截断请改用分段复制）':'复制失败，请手动选择复制'));
+});
+document.getElementById('syncCodeImport').addEventListener('click',()=>{
+  const ta=document.getElementById('syncCodeArea');
+  const raw=(ta.value||'').trim();
+  if(!raw){ toast('请先粘贴数据码'); return; }
+  try{
+    const json=b64ToUtf8(raw);
+    const d=JSON.parse(json);
+    applyBackup(d);
+    toast('已从数据码恢复全部数据'+(canSync()?'，并同步云端 ✓':''));
+  }catch(e){
+    const clean=(raw.replace(/\s+/g,'').match(/[0-9A-Za-z]/g)||[]).length;
+    toast('数据码无效（有效字符 '+clean+' 个）：'+(e.message||'请确认所有段完整、按任意顺序粘进来'));
+    console.warn('[code] import failed:',e);
+  }
+});
+document.getElementById('syncImport').addEventListener('click',()=>{
+  document.getElementById('syncImportFile').click();
+});
+document.getElementById('syncImportFile').addEventListener('change',(e)=>{
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ importFromText(r.result); };
+  r.onerror=()=> toast('无法读取该文件');
+  r.readAsText(f);
+  e.target.value='';
+});
+// 粘贴 JSON 兜底（微信/QQ 转发文件偶尔会被改后缀或编码，直接粘贴最稳）
+const syncPasteBox=document.getElementById('syncPasteBox');
+document.getElementById('syncPasteToggle').addEventListener('click',()=>{
+  syncPasteBox.style.display=syncPasteBox.style.display==='none'?'block':'none';
+});
+document.getElementById('syncPasteCancel').addEventListener('click',()=>{ syncPasteBox.style.display='none'; });
+document.getElementById('syncPasteImport').addEventListener('click',()=>{
+  const area=document.getElementById('syncPasteArea');
+  if(importFromText(area.value)){ area.value=''; syncPasteBox.style.display='none'; }
+});
+/* 回滚本地快照：从 wb_backup_v1 恢复上一次自动备份（不联网，最后兜底） */
+document.getElementById('syncSnap').addEventListener('click',()=>{
+  const raw=localStorage.getItem(SNAP_KEY);
+  if(!raw){ toast('没有可用的本地快照'); return; }
+  try{
+    const d=JSON.parse(raw);
+    if(Array.isArray(d.projects)) projects=mergeArr(projects,d.projects);
+    if(Array.isArray(d.tasks)) tasks=mergeArr(tasks,d.tasks);
+    if(Array.isArray(d.inspiration)) inspirations=dedupeInsp(mergeArr(inspirations,d.inspiration));
+    if(d.theme) setTheme(d.theme);
+    saveProj(); saveTasks(); saveInsp();
+    renderKanban(); renderAllLists(); renderCalendar(); renderTimeline();
+    toast('已从本地快照回滚 ✓');
+    if(canSync()) syncPush(true);
+  }catch(e){ toast('快照恢复失败'); }
+});
+/* ================= LIVE NEWS（Worker /news 聚合） ================= */
+const NEWS_CACHE_KEY='wb_news';
+function getNewsCache(){ try{const c=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY)); if(c&&c.ts&&Date.now()-c.ts<6*3600_000) return c;}catch(e){} return null; }
+function setNewsCache(d){ try{localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(d));}catch(e){} }
+function classifyLive(t,kind){
+  t=t||'';
+  if(kind==='ai'){ if(/政策|立法|监管|规范|意见|通知|整改|治理|办法|条例|指南|合规/.test(t)) return 'policy'; if(/发布|上线|推出|首发|官宣|开放|预约|开售|亮相|落地/.test(t)) return 'product'; return 'breakthrough'; }
+  if(/中国|国内|财政部|税务|税务总局|央行|人民币|国务院|发改委|社保|税|财政|A股|香港/i.test(t)) return 'domestic';
+  return 'global';
+}
+function applyNews(d){
+  if(d.ai&&d.ai.length){ aiLive=d.ai.map(n=>({cat:n.cat||classifyLive(n.title,'ai'), title:n.title, summary:(n.summary||'').slice(0,160), source:n.source||'RSS', date:n.date||''})); }
+  if(d.finance&&d.finance.length){ finLive=d.finance.map(f=>({type:f.type||classifyLive(f.title,'fin'), title:f.title, tag:f.tag||'资讯', summary:(f.summary||'').slice(0,160), source:f.source||'RSS', date:f.date||''})); }
+  if(d.notices&&d.notices.length){ platLive=d.notices; }
+  renderAI(aiCur); renderFinance(); renderPlatNotices(); rebuildTicker();
+}
+async function fetchNews(force){
+  const cached=getNewsCache();
+  if(!force && cached){ applyNews(cached); return; }
+  if(!canSync() || syncCfg.backend==='github'){ if(force) toast('当前为本地文件/ GitHub 模式，联网资讯需部署 EdgeOne 后使用；显示离线快照'); return; }
+  setSyncDot('syncing');
+  const u=syncBase()+'/news';
+  try{
+    const r=await fetch(u,{headers:{'X-Workbench-Key':syncCfg.key||''}});
+    if(!r.ok) throw new Error('status '+r.status);
+    const d=await r.json();
+    setNewsCache(d); applyNews(d);
+    setSyncDot('ok'); if(force) toast('资讯已联网刷新');
+  }catch(e){
+    if(cached){ applyNews(cached); setSyncDot('ok'); }
+    else setSyncDot('err');
+    if(force) toast('资讯刷新失败：'+(e.message||'网络错误')+'。当前显示离线快照');
+  }
+}
+const newsBtn=document.getElementById('newsRefresh');
+if(newsBtn) newsBtn.addEventListener('click',()=>fetchNews(true));
+
+/* ================= CLOCK ================= */
+const WK=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+function tick(){
+  const n=new Date();
+  const p=x=>String(x).padStart(2,'0');
+  document.getElementById('clk').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
+}
+tick(); setInterval(tick,1000);
+
+/* ================= DATE UTILS ================= */
+function pad(n){return String(n).padStart(2,'0');}
+function toStr(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function strToDate(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+function todayStr(){return toStr(new Date());}
+function addDays(s,n){const d=strToDate(s);d.setDate(d.getDate()+n);return toStr(d);}
+function makeMonthDate(y,m,day){const d=new Date(y,m-1,day);if(d.getMonth()!==m-1)d.setDate(0);return toStr(d);}
+function weekStart(s){const d=strToDate(s);const diff=(d.getDay()+6)%7;d.setDate(d.getDate()-diff);return toStr(d);}
+function dayName(s){return ['SUN','MON','TUE','WED','THU','FRI','SAT'][strToDate(s).getDay()];}
+function formatShortDate(s){return s.substring(5).replace('-','.');}
+
+/* ================= DATA ================= */
+const aiNews=[
+  {cat:'breakthrough',title:'智谱发布 GLM-5.3 基座模型',summary:'7530 亿参数，网络安全能力重大突破，CyberGym 漏洞推理测试 84.5%（高于 GPT-5.6 Sol 的 83.6%），启动"开源的盾"安全审计计划。',source:'北京日报 / 智谱',date:'08-17'},
+  {cat:'breakthrough',title:'DeepSeek V4-Pro 正式版上线',summary:'重点强化 Agent 能力，Terminal Bench 2.1 达 87.9 分（仅差全球第一 0.1 分），支持 100 万 Token 上下文，输出定价 0.87 美元/百万。',source:'DeepSeek / 中信建投',date:'08-13'},
+  {cat:'breakthrough',title:'阿里 Qwen3.8-Max 开源权重发布',summary:'总参数 2.4 万亿、激活约 950 亿，史上最大开源权重模型，Artificial Analysis 智能指数 58、编程指数 71.8。',source:'阿里通义',date:'08-10'},
+  {cat:'breakthrough',title:'Meta 开源 Muse Glimmer 30B',summary:'约 300 亿参数稠密多模态模型，可在单张消费级显卡运行本地 Agent 任务，Apache 2.0 许可。',source:'Meta',date:'08-10'},
+  {cat:'breakthrough',title:'受大脑启发低功耗 AI 模型登 Nature 子刊',summary:'格拉茨理工受海马体启发构建认知地图与随机神经计算，能耗远低于主流大模型，面向机器人/自动驾驶本地场景。',source:'Nature Mach. Intell.',date:'08-01'},
+  {cat:'product',title:'"千问办公"首发 GLM-5.3 与 DeepSeek V4 Pro',summary:'阿里 Agent 产品同时支持三款国产旗舰模型，业内首款支持桌面端/云端/企业协同 Agent，后续将推独立 App 与国际版。',source:'新浪科技',date:'08-16'},
+  {cat:'product',title:'荣耀 RobotPhone 预约破 40 万台',summary:'全球首款机器人手机，四自由度钛合金云台，接入智谱 GLM-5.3 编程能力提升 50%，8-18 首销（9999/12999 元）。',source:'零售日报',date:'08-17'},
+  {cat:'product',title:'飞猪发布旅行 AI "飞猪帮帮"',summary:'支持对话出攻略、订酒店、监控航班，国庆前接入淘宝闪购生活服务场景。',source:'零售日报',date:'08-17'},
+  {cat:'product',title:'百度 "库库 AI"（GenFlow）官宣',summary:'百度文库网盘通用智能体中文名公布，面向个人与企业通用任务场景。',source:'界面新闻',date:'08-14'},
+  {cat:'product',title:'腾讯微信"小微"AI 助手灰测、QQ 接入 DeepSeek',summary:'超级 App 从"装 AI"走向"系统级 Agent"，微信"小微"灰度测试中。',source:'零售日报',date:'08-17'},
+  {cat:'policy',title:'三部门印发《智能体规范应用与创新发展实施意见》',summary:'国家网信办、发改委、工信部联合发文，统筹高质量发展与高水平安全，为智能体产业提供行动依据。',source:'新华社《瞭望》',date:'08-04'},
+  {cat:'policy',title:'AI 健康发展综合性立法列入国务院 2026 立法计划',summary:'"十五五"规划纲要写入加强 AI 治理，推进人工智能健康发展综合性立法。',source:'人民日报',date:'08-17'},
+  {cat:'policy',title:'上海发布工业智能体建设指导意见',summary:'到"十五五"末基本建成以工业智能体为核心引擎、赋能新型工业化的完整体系。',source:'上海市通信管理局',date:'08-13'},
+  {cat:'policy',title:'山西出台数字经济与算力融合措施',summary:'17 条举措含"算力券"、大模型研发补贴，全面实施"人工智能"行动（2026-2028）。',source:'山西日报',date:'08-17'}
+];
+let aiLive=null; let finLive=null; let platLive=null; let aiCur='all';
+const catMap={
+  breakthrough:{cls:'fill',txt:'Model/Algo'},
+  product:{cls:'',txt:'Product'},
+  policy:{cls:'red',txt:'Policy'}
+};
+const financeCards=[
+  {type:'domestic',title:'集成电路/工业母机所得税分期',tag:'税收优惠',summary:'财政部等四部门：2026.1.1-2028.12.31 期间非货币性资产交换所得，可在不超过 5 年内分期计入应纳税所得额缴企业所得税。',source:'财政部/税务总局',date:'08-14'},
+  {type:'domestic',title:'社保合规缴费"不搞一刀切"',tag:'社保',summary:'税务部门明确分类分步推进、不强制一步到位，仅规范当期基数、不溯及既往、不集中清缴，限定有缴费能力的大中型企业并"一企一策"。',source:'每日经济新闻',date:'08-16'},
+  {type:'domestic',title:'8 月起多项税费新规施行',tag:'税费',summary:'完善矿业权出让收益征收；上海发布离境退税代理机构名单；退役军人创业享税收/融资/信贷扶持。',source:'澎湃新闻',date:'08-01'},
+  {type:'domestic',title:'能源资源行业城镇土地使用税调整',tag:'税种',summary:'2026.9.1-2027.8.31 相关减免土地减半征收，2027.9.1 起全额征收；(89)国税地字第013号等文件废止。',source:'财政部/税务总局',date:'08-10'},
+  {type:'domestic',title:'境外保险收益征税明确"非新政策"',tag:'跨境',summary:'国税总局：中国税收居民就全球所得纳税，境外保险收益属应纳税范畴，并非新政策、非针对香港保险。',source:'财经网',date:'08-14'},
+  {type:'global',title:'高盛：美联储 9 月不会加息',tag:'货币政策',summary:'消费降温、就业停滞、通胀改善三线转向；9 月 FOMC 加息"已非常不可能"，利率路径仍有向下调整空间。',source:'高盛',date:'08-16'},
+  {type:'global',title:'美国 7 月 CPI 放缓至 3.4%',tag:'通胀',summary:'核心 CPI 降至 2.5%，加息预期降温、科技股受提振；但 8 月消费者信心初值降至 51。',source:'央视财经',date:'08-17'},
+  {type:'global',title:'油价周涨超 5%，霍尔木兹海峡紧张',tag:'大宗',summary:'布伦特原油涨 5.95% 至 88.5 美元；美伊谈判僵局、海峡局势升级推升能源风险。',source:'央视财经/华泰',date:'08-17'},
+  {type:'global',title:'美加关税谈判陷僵局',tag:'贸易',summary:'距 8.19 美对加征 50% 关税大限临近，涉及约 200 亿美元商品；协定若破裂到 2035 美经济损失或达 1.04 万亿美元。',source:'环球时报',date:'08-17'},
+  {type:'global',title:'杰克逊霍尔央行年会 8.20 启幕',tag:'央行',summary:'全球主要央行行长聚首研讨"全球经济再平衡与中性利率"，政策表态将重塑资本市场风险偏好。',source:'国际金融要情',date:'08-20'}
+];
+
+/* ================= TICKER ================= */
+function rebuildTicker(){
+  const items=[].concat((aiLive||aiNews).map(n=>({t:n.title,k:'AI'})),(finLive||financeCards).map(f=>({t:f.title,k:'FIN'})));
+  const half=items.map(i=>'<span class="mi"><span class="d'+(i.k==='FIN'?' r':'')+'"></span>'+i.k+' · '+i.t+'</span>').join('');
+  const t=document.getElementById('mqTrack'); if(t) t.innerHTML=half+half;
+}
+
+/* ================= AI FEED ================= */
+function renderAI(cat){
+  aiCur=cat;
+  const box=document.getElementById('aiFeed');
+  box.innerHTML='';
+  (aiLive||aiNews).filter(n=>cat==='all'||n.cat===cat).forEach((n,i)=>{
+    const c=catMap[n.cat];
+    const el=document.createElement('div');
+    el.className='ncard';
+    el.innerHTML='<span class="idx">'+String(i+1).padStart(2,'0')+'</span>'
+      +'<span class="b '+c.cls+'">'+c.txt+'</span>'
+      +'<h4>'+n.title+'</h4><p>'+n.summary+'</p>'
+      +'<div class="meta"><span>'+n.source+'</span><span>'+n.date+'</span></div>';
+    box.appendChild(el);
+  });
+}
+document.getElementById('aiChips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c)return;
+  document.querySelectorAll('#aiChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); renderAI(c.dataset.cat);
+});
+
+/* ================= FINANCE ================= */
+function renderFinance(){
+  const g=document.getElementById('finGrid');
+  g.innerHTML='';
+  (finLive||financeCards).forEach(f=>{
+    const el=document.createElement('div');
+    el.className='fcard'+(f.type==='global'?' global':'');
+    el.innerHTML='<span class="ftag">'+(f.tag||'资讯')+'</span>'
+      +'<h4>'+f.title+'</h4><p>'+f.summary+'</p>'
+      +'<div class="meta"><span>'+f.source+'</span><span>'+f.date+'</span></div>';
+    g.appendChild(el);
+  });
+}
+
+/* ================= SKILL PICKS (board 01 / 03) — GitHub 动态趋势主题 ================= */
+const SKILL_TRENDING_DEFAULT = [{"name": "public-apis/public-apis", "by": "public-apis", "stars": 462682, "lang": "Python", "intro": "A collective list of free APIs", "url": "https://github.com/public-apis/public-apis", "topics": ["api", "apis", "dataset", "development", "free", "list", "lists", "open-source", "public", "public-api", "public-apis", "resources", "software"]}, {"name": "freeCodeCamp/freeCodeCamp", "by": "freeCodeCamp", "stars": 454161, "lang": "TypeScript", "intro": "freeCodeCamp.org's open-source codebase and curriculum. Learn math, programming, and computer science for free.", "url": "https://github.com/freeCodeCamp/freeCodeCamp", "topics": ["careers", "certification", "community", "curriculum", "d3", "education", "freecodecamp", "javascript", "learn-to-code", "math", "nodejs", "nonprofits", "programming", "react", "teachers"]}, {"name": "EbookFoundation/free-programming-books", "by": "EbookFoundation", "stars": 394589, "lang": "Python", "intro": ":books: Freely available programming books", "url": "https://github.com/EbookFoundation/free-programming-books", "topics": ["books", "education", "hacktoberfest", "list", "resource"]}, {"name": "openclaw/openclaw", "by": "openclaw", "stars": 386508, "lang": "TypeScript", "intro": "Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞 ", "url": "https://github.com/openclaw/openclaw", "topics": ["ai", "assistant", "crustacean", "molty", "openclaw", "own-your-data", "personal"]}, {"name": "nilbuild/developer-roadmap", "by": "nilbuild", "stars": 364675, "lang": "TypeScript", "intro": "Interactive roadmaps, guides and other educational content to help developers grow in their careers.", "url": "https://github.com/nilbuild/developer-roadmap", "topics": ["angular-roadmap", "backend-roadmap", "blockchain-roadmap", "computer-science", "dba-roadmap", "developer-roadmap", "devops-roadmap", "frontend-roadmap", "go-roadmap", "java-roadmap", "javascript-roadmap", "nodejs-roadmap", "python-roadmap", "qa-roadmap", "react-roadmap", "roadmap", "software-architect-roadmap", "vue-roadmap"]}, {"name": "vinta/awesome-python", "by": "vinta", "stars": 314389, "lang": "Python", "intro": "The definitive list that answers \"I want to do X in Python, which tool should I use?\"", "url": "https://github.com/vinta/awesome-python", "topics": ["awesome", "collections", "python", "python-frameworks", "python-libraries", "python-tools"]}, {"name": "awesome-selfhosted/awesome-selfhosted", "by": "awesome-selfhosted", "stars": 313180, "lang": "", "intro": "A list of Free Software network services and web applications which can be hosted on your own servers", "url": "https://github.com/awesome-selfhosted/awesome-selfhosted", "topics": ["awesome", "awesome-list", "cloud", "free-software", "hosting", "privacy", "self-hosted", "selfhosted"]}, {"name": "practical-tutorials/project-based-learning", "by": "practical-tutorials", "stars": 279541, "lang": "Python", "intro": "Curated list of project-based tutorials", "url": "https://github.com/practical-tutorials/project-based-learning", "topics": ["beginner-project", "cpp", "golang", "javascript", "project", "python", "tutorial", "webdevelopment"]}, {"name": "obra/superpowers", "by": "obra", "stars": 272994, "lang": "Shell", "intro": "An agentic skills framework & software development methodology that works.", "url": "https://github.com/obra/superpowers", "topics": ["ai", "brainstorming", "coding", "obra", "sdlc", "skills", "subagent-driven-development", "superpowers"]}, {"name": "react/react", "by": "react", "stars": 247285, "lang": "JavaScript", "intro": "The library for web and native user interfaces.", "url": "https://github.com/react/react", "topics": ["declarative", "frontend", "javascript", "library", "react", "ui"]}, {"name": "torvalds/linux", "by": "torvalds", "stars": 242949, "lang": "C", "intro": "Linux kernel source tree", "url": "https://github.com/torvalds/linux", "topics": []}, {"name": "affaan-m/ECC", "by": "affaan-m", "stars": 240590, "lang": "JavaScript", "intro": "The agent harness performance optimization system. Skills, instincts, memory, security, and research-first development for Claude Code, Codex, Opencode, Curs…", "url": "https://github.com/affaan-m/ECC", "topics": ["ai-agents", "anthropic", "claude", "claude-code", "developer-tools", "llm", "mcp", "productivity"]}, {"name": "NousResearch/hermes-agent", "by": "NousResearch", "stars": 231754, "lang": "Python", "intro": "The agent that grows with you", "url": "https://github.com/NousResearch/hermes-agent", "topics": ["ai", "ai-agent", "ai-agents", "anthropic", "chatgpt", "claude", "claude-code", "codex", "hermes", "hermes-agent", "llm", "nous-research", "openai"]}, {"name": "TheAlgorithms/Python", "by": "TheAlgorithms", "stars": 223780, "lang": "Python", "intro": "All Algorithms implemented in Python", "url": "https://github.com/TheAlgorithms/Python", "topics": ["algorithm", "algorithm-competitions", "algorithms-implemented", "algos", "community-driven", "education", "hacktoberfest", "interview", "learn", "practice", "python", "searches", "sorting-algorithms", "sorts"]}, {"name": "mattpocock/skills", "by": "mattpocock", "stars": 219831, "lang": "Shell", "intro": "Skills for Real Engineers. Straight from my .agents directory.", "url": "https://github.com/mattpocock/skills", "topics": []}, {"name": "n8n-io/n8n", "by": "n8n-io", "stars": 200941, "lang": "TypeScript", "intro": "Fair-code workflow automation platform with native AI capabilities. Combine visual building with custom code, self-host or cloud, 400+ integrations.", "url": "https://github.com/n8n-io/n8n", "topics": ["ai", "apis", "automation", "cli", "data-flow", "development", "integration-framework", "integrations", "ipaas", "low-code", "low-code-platform", "mcp", "mcp-client", "mcp-server", "n8n", "no-code", "self-hosted", "typescript", "workflow", "workflow-automation"]}, {"name": "anomalyco/opencode", "by": "anomalyco", "stars": 198300, "lang": "TypeScript", "intro": "The open source coding agent.", "url": "https://github.com/anomalyco/opencode", "topics": []}, {"name": "tensorflow/tensorflow", "by": "tensorflow", "stars": 196956, "lang": "C++", "intro": "An Open Source Machine Learning Framework for Everyone", "url": "https://github.com/tensorflow/tensorflow", "topics": ["deep-learning", "deep-neural-networks", "distributed", "machine-learning", "ml", "neural-network", "python", "tensorflow"]}, {"name": "trekhleb/javascript-algorithms", "by": "trekhleb", "stars": 196496, "lang": "JavaScript", "intro": "📝 Algorithms and data structures implemented in JavaScript with explanations and links to further readings", "url": "https://github.com/trekhleb/javascript-algorithms", "topics": ["algorithm", "algorithms", "computer-science", "data-structures", "interview", "interview-preparation", "javascript", "javascript-algorithms"]}, {"name": "ultraworkers/claw-code", "by": "ultraworkers", "stars": 195057, "lang": "Rust", "intro": "An agent-managed museum exhibit, built in Rust with Gajae-Code / LazyCodex — developed and maintained with no human intervention.", "url": "https://github.com/ultraworkers/claw-code", "topics": []}, {"name": "DigitalPlatDev/FreeDomain", "by": "DigitalPlatDev", "stars": 193811, "lang": "Markdown", "intro": "Free domain registration and practical DNS learning resources for everyone.", "url": "https://github.com/DigitalPlatDev/FreeDomain", "topics": ["digitalplat", "dns", "dns-tutorial", "documentation", "domain", "domain-platform", "domain-registration", "domainname", "domains", "education", "free", "free-domain", "freedomain", "internet-infrastructure", "nameserver"]}, {"name": "ohmyzsh/ohmyzsh", "by": "ohmyzsh", "stars": 189213, "lang": "Shell", "intro": "🙃   A delightful community-driven (with 2,500+ contributors) framework for managing your zsh configuration. Includes 300+ optional plugins (rails, git, macOS…", "url": "https://github.com/ohmyzsh/ohmyzsh", "topics": ["cli", "cli-app", "oh-my-zsh", "oh-my-zsh-plugin", "oh-my-zsh-theme", "ohmyzsh", "plugin-framework", "plugins", "productivity", "shell", "terminal", "theme", "themes", "zsh", "zsh-configuration"]}, {"name": "microsoft/vscode", "by": "microsoft", "stars": 188786, "lang": "TypeScript", "intro": "Visual Studio Code", "url": "https://github.com/microsoft/vscode", "topics": ["editor", "electron", "microsoft", "typescript", "visual-studio-code"]}, {"name": "Significant-Gravitas/AutoGPT", "by": "Significant-Gravitas", "stars": 186634, "lang": "Python", "intro": "AutoGPT is the vision of accessible AI for everyone, to use and to build on. Our mission is to provide the tools, so that you can focus on what matters.", "url": "https://github.com/Significant-Gravitas/AutoGPT", "topics": ["agentic-ai", "agents", "ai", "artificial-intelligence", "autonomous-agents", "claude", "gpt", "llama-api", "llm", "openai", "python"]}, {"name": "jackfrued/Python-100-Days", "by": "jackfrued", "stars": 185266, "lang": "Jupyter Notebook", "intro": "Python - 100天从新手到大师", "url": "https://github.com/jackfrued/Python-100-Days", "topics": []}, {"name": "yt-dlp/yt-dlp", "by": "yt-dlp", "stars": 184982, "lang": "Python", "intro": "A feature-rich command-line audio/video downloader", "url": "https://github.com/yt-dlp/yt-dlp", "topics": ["cli", "downloader", "python", "sponsorblock", "youtube-dl", "youtube-downloader", "yt-dlp"]}, {"name": "avelino/awesome-go", "by": "avelino", "stars": 181276, "lang": "Go", "intro": "A curated list of awesome Go frameworks, libraries and software", "url": "https://github.com/avelino/awesome-go", "topics": ["awesome", "awesome-list", "go", "golang", "golang-library", "hacktoberfest"]}, {"name": "ollama/ollama", "by": "ollama", "stars": 178742, "lang": "Go", "intro": "Get up and running with Kimi-K2.6, GLM-5.2, MiniMax, DeepSeek, gpt-oss, Qwen, Gemma and other models.", "url": "https://github.com/ollama/ollama", "topics": ["deepseek", "gemma", "gemma3", "glm", "go", "golang", "gpt-oss", "llama", "llama3", "llm", "llms", "minimax", "mistral", "ollama", "qwen"]}, {"name": "flutter/flutter", "by": "flutter", "stars": 178388, "lang": "Dart", "intro": "Flutter makes it easy and fast to build beautiful apps for mobile and beyond", "url": "https://github.com/flutter/flutter", "topics": ["android", "app-framework", "cross-platform", "dart", "dart-platform", "desktop", "flutter", "flutter-package", "fuchsia", "ios", "linux-desktop", "macos", "material-design", "mobile", "mobile-development", "skia", "web", "web-framework", "windows"]}, {"name": "github/gitignore", "by": "github", "stars": 175329, "lang": "", "intro": "A collection of useful .gitignore templates", "url": "https://github.com/github/gitignore", "topics": ["git", "gitignore"]}, {"name": "twbs/bootstrap", "by": "twbs", "stars": 174601, "lang": "MDX", "intro": "The most popular HTML, CSS, and JavaScript framework for developing responsive, mobile first projects on the web.", "url": "https://github.com/twbs/bootstrap", "topics": ["bootstrap", "css", "css-framework", "html", "javascript", "sass", "scss"]}, {"name": "microsoft/markitdown", "by": "microsoft", "stars": 174169, "lang": "Python", "intro": "Python tool for converting files and office documents to Markdown.", "url": "https://github.com/microsoft/markitdown", "topics": ["autogen", "autogen-extension", "langchain", "markdown", "microsoft-office", "openai", "pdf"]}, {"name": "521xueweihan/HelloGitHub", "by": "521xueweihan", "stars": 171309, "lang": "Python", "intro": ":octocat: 分享 GitHub 上有趣、入门级的开源项目。Share interesting, entry-level open source projects on GitHub.", "url": "https://github.com/521xueweihan/HelloGitHub", "topics": ["awesome", "github", "hellogithub", "python"]}, {"name": "anthropics/skills", "by": "anthropics", "stars": 169857, "lang": "Python", "intro": "Public repository for Agent Skills", "url": "https://github.com/anthropics/skills", "topics": ["agent-skills"]}, {"name": "firecrawl/firecrawl", "by": "firecrawl", "stars": 168371, "lang": "TypeScript", "intro": "The context API to search, scrape, and interact with the web at scale. 🔥", "url": "https://github.com/firecrawl/firecrawl", "topics": ["ai", "ai-agents", "ai-crawler", "ai-scraping", "ai-search", "crawler", "data-extraction", "html-to-markdown", "llm", "markdown", "scraper", "scraping", "web-crawler", "web-data", "web-data-extraction", "web-scraper", "web-scraping", "web-search", "webscraping"]}, {"name": "f/prompts.chat", "by": "f", "stars": 167291, "lang": "HTML", "intro": "f.k.a. Awesome ChatGPT Prompts. Share, discover, and collect prompts from the community. Free and open source — self-host for your organization with complete…", "url": "https://github.com/f/prompts.chat", "topics": ["ai", "artificial-intelligence", "awesome-list", "chatgpt", "chatgpt-prompts", "claude", "gemini", "gpt", "gpt-4", "llm", "machine-learning", "nextjs", "open-source", "openai", "prompt-engineering", "prompts", "prompts-chat", "typescript"]}, {"name": "huggingface/transformers", "by": "huggingface", "stars": 164160, "lang": "Python", "intro": "🤗 Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference…", "url": "https://github.com/huggingface/transformers", "topics": ["audio", "deep-learning", "deepseek", "gemma", "glm", "hacktoberfest", "llm", "machine-learning", "model-hub", "natural-language-processing", "nlp", "pretrained-models", "python", "pytorch", "pytorch-transformers", "qwen", "speech-recognition", "transformer", "vlm"]}, {"name": "Snailclimb/JavaGuide", "by": "Snailclimb", "stars": 157813, "lang": "JavaScript", "intro": "Java 面试 & 后端通用面试指南，覆盖计算机基础、数据库、分布式、高并发、系统设计与 AI 应用开发", "url": "https://github.com/Snailclimb/JavaGuide", "topics": ["agent", "ai", "context-engineering", "deepseek", "interview", "java", "mcp", "mysql", "redis", "redisson", "skills", "springai", "system-design"]}, {"name": "langflow-ai/langflow", "by": "langflow-ai", "stars": 153341, "lang": "Python", "intro": "Langflow is a powerful tool for building and deploying AI-powered agents and workflows.", "url": "https://github.com/langflow-ai/langflow", "topics": ["agents", "chatgpt", "generative-ai", "large-language-models", "multiagent", "react-flow"]}, {"name": "langgenius/dify", "by": "langgenius", "stars": 152673, "lang": "TypeScript", "intro": "Build Agentic workflows, RAG pipelines, with rich AI model and tool support on one collaborative workspace. Deploy on cloud, VPC, or self-hosted, so teams mo…", "url": "https://github.com/langgenius/dify", "topics": ["agent", "agentic-ai", "agentic-framework", "agentic-workflow", "ai", "automation", "claude", "genai", "gpt", "llm", "low-code", "mcp", "nextjs", "no-code", "openai", "orchestration", "python", "rag", "skills", "workflow"]}, {"name": "open-webui/open-webui", "by": "open-webui", "stars": 148982, "lang": "Python", "intro": "User-friendly AI Interface (Supports Ollama, OpenAI API, ...)", "url": "https://github.com/open-webui/open-webui", "topics": ["ai", "llm", "llm-ui", "llm-webui", "llms", "mcp", "ollama", "ollama-webui", "open-webui", "openai", "openapi", "rag", "self-hosted", "ui", "webui"]}, {"name": "Genymobile/scrcpy", "by": "Genymobile", "stars": 147784, "lang": "C", "intro": "Display and control your Android device", "url": "https://github.com/Genymobile/scrcpy", "topics": ["android", "c", "ffmpeg", "libav", "mirroring", "recording", "screen", "sdl2"]}, {"name": "msitarzewski/agency-agents", "by": "msitarzewski", "stars": 145912, "lang": "Shell", "intro": "A complete AI agency at your fingertips - From frontend wizards to Reddit community ninjas, from whimsy injectors to reality checkers. Each agent is a specia…", "url": "https://github.com/msitarzewski/agency-agents", "topics": []}, {"name": "deepseek-ai/deepseek-harness", "by": "deepseek-ai", "stars": 144609, "lang": "TypeScript", "intro": "DeepSeek Harness: Everything is a Plugin.", "url": "https://github.com/deepseek-ai/deepseek-harness", "topics": ["ai-agents", "cordis", "dsh", "dsh-plugin"]}, {"name": "langchain-ai/langchain", "by": "langchain-ai", "stars": 144367, "lang": "Python", "intro": "The agent engineering platform.", "url": "https://github.com/langchain-ai/langchain", "topics": ["agents", "ai", "ai-agents", "anthropic", "chatgpt", "deepagents", "enterprise", "framework", "gemini", "generative-ai", "langchain", "langgraph", "llm", "multiagent", "open-source", "openai", "pydantic", "python", "rag", "typescript"]}, {"name": "x1xhlol/system-prompts-and-models-of-ai-tools", "by": "x1xhlol", "stars": 142867, "lang": "", "intro": "FULL Augment Code, Claude Code, Cluely, CodeBuddy, Comet, Cursor, Devin AI, Junie, Kiro, Leap.new, Lovable, Manus, NotionAI, Orchids.app, Perplexity, Poke, Q…", "url": "https://github.com/x1xhlol/system-prompts-and-models-of-ai-tools", "topics": ["ai", "bolt", "cluely", "copilot", "cursor", "cursorai", "devin", "github-copilot", "lovable", "open-source", "perplexity", "replit", "system-prompts", "trae", "trae-ai", "trae-ide", "v0", "vscode", "windsurf", "windsurf-ai"]}, {"name": "yangshun/tech-interview-handbook", "by": "yangshun", "stars": 141922, "lang": "TypeScript", "intro": "Curated coding interview preparation materials for busy software engineers", "url": "https://github.com/yangshun/tech-interview-handbook", "topics": ["algorithm", "algorithm-interview", "algorithm-interview-questions", "algorithms", "behavioral-interviews", "coding-interviews", "interview-practice", "interview-preparation", "interview-questions", "system-design"]}, {"name": "vercel/next.js", "by": "vercel", "stars": 141782, "lang": "JavaScript", "intro": "The React Framework", "url": "https://github.com/vercel/next.js", "topics": ["blog", "browser", "compiler", "components", "hybrid", "nextjs", "node", "react", "server-rendering", "ssg", "static", "static-site-generator", "universal", "vercel"]}, {"name": "anthropics/claude-code", "by": "anthropics", "stars": 141720, "lang": "Python", "intro": "Claude Code is an agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster by executing routine tasks, explainin…", "url": "https://github.com/anthropics/claude-code", "topics": []}, {"name": "clash-verge-rev/clash-verge-rev", "by": "clash-verge-rev", "stars": 138351, "lang": "TypeScript", "intro": "A modern GUI client based on Tauri, designed to run in Windows, macOS and Linux for tailored proxy experience", "url": "https://github.com/clash-verge-rev/clash-verge-rev", "topics": ["clash", "clash-meta", "clash-verge", "linux", "mac", "mihomo", "tauri-app", "windows"]}, {"name": "microsoft/PowerToys", "by": "microsoft", "stars": 137813, "lang": "C", "intro": "Microsoft PowerToys is a collection of utilities that supercharge productivity and customization on Windows", "url": "https://github.com/microsoft/PowerToys", "topics": ["advanced-paste", "color-picker", "command-palette", "desktop", "fancyzones", "keyboard-manager", "microsoft-powertoys", "powerrename", "powertoys", "windows", "windows-10", "windows-11"]}, {"name": "iptv-org/iptv", "by": "iptv-org", "stars": 136012, "lang": "TypeScript", "intro": "Collection of publicly available IPTV channels from all over the world", "url": "https://github.com/iptv-org/iptv", "topics": ["iptv", "m3u", "playlist", "streams", "tv"]}, {"name": "golang/go", "by": "golang", "stars": 135816, "lang": "Go", "intro": "The Go programming language", "url": "https://github.com/golang/go", "topics": ["go", "golang", "language", "programming-language"]}, {"name": "Shubhamsaboo/awesome-llm-apps", "by": "Shubhamsaboo", "stars": 132928, "lang": "Python", "intro": "100+ AI Agents, Agent Skills and RAG Apps - Free and Open Source.", "url": "https://github.com/Shubhamsaboo/awesome-llm-apps", "topics": ["agents", "llms", "python", "rag"]}, {"name": "ripienaar/free-for-dev", "by": "ripienaar", "stars": 132007, "lang": "HTML", "intro": "A list of SaaS, PaaS and IaaS offerings that have free tiers of interest to devops and infradev", "url": "https://github.com/ripienaar/free-for-dev", "topics": ["awesome-list", "free-for-developers"]}, {"name": "excalidraw/excalidraw", "by": "excalidraw", "stars": 129846, "lang": "TypeScript", "intro": "Virtual whiteboard for sketching hand-drawn like diagrams", "url": "https://github.com/excalidraw/excalidraw", "topics": ["canvas", "collaboration", "diagrams", "drawing", "hacktoberfest", "productivity", "whiteboard"]}, {"name": "github/spec-kit", "by": "github", "stars": 129665, "lang": "Python", "intro": "💫 Toolkit to help you get started with Spec-Driven Development", "url": "https://github.com/github/spec-kit", "topics": ["ai", "copilot", "development", "engineering", "prd", "spec", "spec-driven"]}, {"name": "krahets/hello-algo", "by": "krahets", "stars": 129426, "lang": "Java", "intro": "《Hello 算法》：动画图解、一键运行的数据结构与算法教程。支持简中、繁中、English、日本語，提供 Python, Java, C++, C, C#, JS, Go, Swift, Rust, Ruby, Kotlin, TS, Dart 等代码实现", "url": "https://github.com/krahets/hello-algo", "topics": ["algo", "algorithm", "algorithms", "book", "data-structure", "data-structures", "data-structures-and-algorithms", "dsa", "education", "leetcode", "programming"]}, {"name": "Chalarangelo/30-seconds-of-code", "by": "Chalarangelo", "stars": 128732, "lang": "JavaScript", "intro": "Coding articles to level up your development skills", "url": "https://github.com/Chalarangelo/30-seconds-of-code", "topics": ["astro", "awesome-list", "css", "education", "es6-javascript", "git", "html", "javascript", "learn-to-code", "learning-resources", "nodejs", "programming", "snippets"]}, {"name": "garrytan/gstack", "by": "garrytan", "stars": 128326, "lang": "TypeScript", "intro": "Use Garry Tan's exact Claude Code setup: 23 opinionated tools that serve as CEO, Designer, Eng Manager, Release Manager, Doc Engineer, and QA", "url": "https://github.com/garrytan/gstack", "topics": []}, {"name": "Comfy-Org/ComfyUI", "by": "Comfy-Org", "stars": 128029, "lang": "Python", "intro": "The most powerful and modular diffusion model GUI, api and backend with a graph/nodes interface.", "url": "https://github.com/Comfy-Org/ComfyUI", "topics": ["ai", "comfy", "comfyui", "python", "pytorch", "stable-diffusion"]}, {"name": "farion1231/cc-switch", "by": "farion1231", "stars": 127764, "lang": "Rust", "intro": "A cross-platform desktop All-in-One assistant for Claude Code, Codex, OpenCode, OpenClaw, Grok Build & Hermes Agent. Only official website: ccswitch.io", "url": "https://github.com/farion1231/cc-switch", "topics": ["ai-tools", "claude-code", "codex", "desktop-app", "grok", "grokbuild", "hermes", "hermes-agent", "mcp", "open-source", "openclaw", "openclaw-ui", "opencode", "provider-management", "rust", "skills", "skills-management", "tauri", "typescript", "wsl-support"]}, {"name": "react/react-native", "by": "react", "stars": 126353, "lang": "C++", "intro": "A framework for building native applications using React", "url": "https://github.com/react/react-native", "topics": ["android", "app-framework", "cross-platform", "ios", "mobile", "mobile-development", "react", "react-native"]}, {"name": "kubernetes/kubernetes", "by": "kubernetes", "stars": 124491, "lang": "Go", "intro": "Production-Grade Container Scheduling and Management", "url": "https://github.com/kubernetes/kubernetes", "topics": ["cncf", "containers", "go", "kubernetes"]}, {"name": "ggml-org/llama.cpp", "by": "ggml-org", "stars": 124290, "lang": "C++", "intro": "LLM inference in C/C++", "url": "https://github.com/ggml-org/llama.cpp", "topics": ["ggml"]}, {"name": "electron/electron", "by": "electron", "stars": 122481, "lang": "C++", "intro": ":electron: Build cross-platform desktop apps with JavaScript, HTML, and CSS", "url": "https://github.com/electron/electron", "topics": ["c-plus-plus", "chrome", "css", "electron", "html", "javascript", "nodejs", "v8", "works-with-codespaces"]}, {"name": "shadcn-ui/ui", "by": "shadcn-ui", "stars": 121472, "lang": "TypeScript", "intro": "A set of beautifully-designed, accessible components and a code distribution platform. Works with your favorite frameworks. Open Source. Open Code.", "url": "https://github.com/shadcn-ui/ui", "topics": ["base-ui", "components", "laravel", "nextjs", "radix-ui", "react", "shadcn", "tailwindcss", "tanstack", "ui", "vite"]}, {"name": "rustdesk/rustdesk", "by": "rustdesk", "stars": 121044, "lang": "Rust", "intro": "An open-source remote desktop application designed for self-hosting, as an alternative to TeamViewer.", "url": "https://github.com/rustdesk/rustdesk", "topics": ["android", "anydesk", "dart", "flatpak", "flutter", "flutter-apps", "ios", "linux", "macos", "p2p", "rdp", "remote-control", "remote-desktop", "rust", "rust-lang", "teamviewer", "vnc", "wayland", "windows"]}, {"name": "nodejs/node", "by": "nodejs", "stars": 118914, "lang": "JavaScript", "intro": "Node.js JavaScript runtime ✨🐢🚀✨", "url": "https://github.com/nodejs/node", "topics": ["javascript", "js", "linux", "macos", "mit", "node", "nodejs", "runtime", "windows"]}, {"name": "Hack-with-Github/Awesome-Hacking", "by": "Hack-with-Github", "stars": 118484, "lang": "", "intro": "A collection of various awesome lists for hackers, pentesters and security researchers", "url": "https://github.com/Hack-with-Github/Awesome-Hacking", "topics": ["android", "awesome", "bug-bounty", "fuzzing", "hacking", "penetration-testing", "pentesting-windows", "reverse-engineering", "security"]}, {"name": "justjavac/free-programming-books-zh_CN", "by": "justjavac", "stars": 118364, "lang": "", "intro": ":books: 免费的计算机编程类中文书籍，欢迎投稿", "url": "https://github.com/justjavac/free-programming-books-zh_CN", "topics": ["android", "angular", "books", "free", "ios", "javascript", "kotlin", "pdf", "programming", "python", "react", "react-native", "swift", "vue"]}, {"name": "microsoft/generative-ai-for-beginners", "by": "microsoft", "stars": 117909, "lang": "Jupyter Notebook", "intro": "21 Lessons, Get Started Building with Generative AI ", "url": "https://github.com/microsoft/generative-ai-for-beginners", "topics": ["ai", "azure", "chatgpt", "dall-e", "generative-ai", "generativeai", "gpt", "language-model", "llms", "microsoft-for-beginners", "openai", "prompt-engineering", "semantic-search", "transformers"]}, {"name": "nextlevelbuilder/ui-ux-pro-max-skill", "by": "nextlevelbuilder", "stars": 117469, "lang": "Python", "intro": "An AI skill that provides design intelligence for building professional UI/UX across multiple platforms.", "url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill", "topics": ["ai-skills", "antigravity", "claude", "claude-code", "codex", "command-line", "copilot", "cursor-ai", "html5", "kiro", "landing-page", "mobile-ui", "qoder", "react", "tailwindcss", "trae", "ui-design", "uikit", "windsurf-ai"]}, {"name": "godotengine/godot", "by": "godotengine", "stars": 115726, "lang": "C++", "intro": "Godot Engine – Multi-platform 2D and 3D game engine", "url": "https://github.com/godotengine/godot", "topics": ["game-development", "game-engine", "gamedev", "godot", "godotengine", "multi-platform", "open-source"]}, {"name": "rust-lang/rust", "by": "rust-lang", "stars": 115499, "lang": "Rust", "intro": "Empowering everyone to build reliable and efficient software.", "url": "https://github.com/rust-lang/rust", "topics": ["compiler", "language", "rust"]}, {"name": "mrdoob/three.js", "by": "mrdoob", "stars": 114568, "lang": "JavaScript", "intro": "JavaScript 3D Library.", "url": "https://github.com/mrdoob/three.js", "topics": ["3d", "augmented-reality", "canvas", "html5", "javascript", "svg", "virtual-reality", "webaudio", "webgl", "webgl2", "webgpu", "webxr"]}, {"name": "2dust/v2rayN", "by": "2dust", "stars": 114028, "lang": "C#", "intro": "A GUI client for Windows, Linux and macOS, support Xray and sing-box and others", "url": "https://github.com/2dust/v2rayN", "topics": ["proxy", "shadowsocks", "socks5", "trojan", "v2fly", "v2ray", "vless", "vmess", "windows", "xray", "xtls"]}, {"name": "jaywcjlove/awesome-mac", "by": "jaywcjlove", "stars": 111249, "lang": "Swift", "intro": " This project is dedicated to collecting high-quality macOS software and organizing them systematically by different categories for easy search and use.", "url": "https://github.com/jaywcjlove/awesome-mac", "topics": ["app", "apple", "application", "apps", "awesome", "awesome-list", "awesome-lists", "awesome-mac", "desktop-app", "desktop-application", "desktop-apps", "list", "mac", "mac-osx", "macos", "macos-app", "macos-apps", "macosx", "software"]}, {"name": "immich-app/immich", "by": "immich-app", "stars": 110812, "lang": "TypeScript", "intro": "High performance self-hosted photo and video management solution.", "url": "https://github.com/immich-app/immich", "topics": ["backup-tool", "flutter", "google-photos", "google-photos-alternative", "javascript", "mobile-app", "nestjs", "nodejs", "photo-gallery", "photos", "photos-management", "self-hosted", "svelte", "sveltekit", "typescript", "videos"]}, {"name": "tauri-apps/tauri", "by": "tauri-apps", "stars": 110278, "lang": "Rust", "intro": "Build smaller, faster, and more secure desktop and mobile applications with a web frontend.", "url": "https://github.com/tauri-apps/tauri", "topics": ["desktop-app", "high-performance", "mobile-app", "native-app", "rust", "web-frontend", "webview"]}, {"name": "microsoft/TypeScript", "by": "microsoft", "stars": 110178, "lang": "TypeScript", "intro": "TypeScript is a superset of JavaScript that compiles to clean JavaScript output.", "url": "https://github.com/microsoft/TypeScript", "topics": ["javascript", "language", "typechecker", "typescript"]}, {"name": "browser-use/browser-use", "by": "browser-use", "stars": 109478, "lang": "Python", "intro": "🌐 Make websites accessible for AI agents. Automate tasks online with ease.", "url": "https://github.com/browser-use/browser-use", "topics": ["ai-agents", "ai-tools", "browser-automation", "browser-use", "llm", "playwright", "python"]}, {"name": "axios/axios", "by": "axios", "stars": 109205, "lang": "JavaScript", "intro": "Promise based HTTP client for the browser and node.js", "url": "https://github.com/axios/axios", "topics": ["hacktoberfest", "http-client", "javascript", "nodejs", "promise"]}, {"name": "VoltAgent/awesome-design-md", "by": "VoltAgent", "stars": 108858, "lang": "", "intro": "A collection of DESIGN.md files analysis by popular brand design systems. Drop one into your project and let coding agents generate a matching UI.", "url": "https://github.com/VoltAgent/awesome-design-md", "topics": ["awesome-list", "design-md", "design-system", "design-tokens", "figma", "google-stitch", "landing-page", "vibe-coding", "vibe-design", "vibecoding"]}, {"name": "fatedier/frp", "by": "fatedier", "stars": 108831, "lang": "Go", "intro": "A fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet.", "url": "https://github.com/fatedier/frp", "topics": ["expose", "firewall", "frp", "go", "http-proxy", "nat", "p2p", "proxy", "reverse-proxy", "tunnel"]}, {"name": "denoland/deno", "by": "denoland", "stars": 108221, "lang": "Rust", "intro": "A modern runtime for JavaScript and TypeScript.", "url": "https://github.com/denoland/deno", "topics": ["deno", "javascript", "rust", "typescript"]}, {"name": "supabase/supabase", "by": "supabase", "stars": 108077, "lang": "TypeScript", "intro": "The Postgres development platform. Supabase gives you a dedicated Postgres database to build your web, mobile, and AI applications.", "url": "https://github.com/supabase/supabase", "topics": ["ai", "alternative", "auth", "database", "deno", "embeddings", "example", "firebase", "nextjs", "oauth2", "pgvector", "postgis", "postgres", "postgresql", "postgrest", "realtime", "supabase", "vectors", "websockets"]}, {"name": "openai/whisper", "by": "openai", "stars": 107427, "lang": "Python", "intro": "Robust Speech Recognition via Large-Scale Weak Supervision", "url": "https://github.com/openai/whisper", "topics": []}, {"name": "Graphify-Labs/graphify", "by": "Graphify-Labs", "stars": 107308, "lang": "Python", "intro": "Turn any codebase, with its docs, SQL schemas, configs, and PDFs, into a queryable knowledge graph. A /graphify skill for Claude Code, Cursor, Codex, and Gem…", "url": "https://github.com/Graphify-Labs/graphify", "topics": ["ai-agents", "antigravity", "ast", "claude-code", "code-analysis", "code-search", "codex", "cursor", "developer-tools", "gemini", "graphrag", "knowledge-graph", "leiden", "llm", "mcp", "openclaw", "rag", "skills", "tree-sitter"]}, {"name": "google-gemini/gemini-cli", "by": "google-gemini", "stars": 106531, "lang": "TypeScript", "intro": "An open-source AI agent that brings the power of Gemini directly into your terminal.", "url": "https://github.com/google-gemini/gemini-cli", "topics": ["ai", "ai-agents", "cli", "gemini", "gemini-api", "mcp-client", "mcp-server"]}, {"name": "openai/codex", "by": "openai", "stars": 106415, "lang": "Rust", "intro": "Lightweight coding agent that runs in your terminal", "url": "https://github.com/openai/codex", "topics": []}, {"name": "harry0703/MoneyPrinterTurbo", "by": "harry0703", "stars": 105150, "lang": "Python", "intro": "利用 AI 大模型和自动化工作流，根据主题或关键词一键生成高清短视频。Generate HD short videos from a topic or keyword with an automated AI workflow.", "url": "https://github.com/harry0703/MoneyPrinterTurbo", "topics": ["ai-video-generator", "content-creation", "ffmpeg", "instagram-reels", "llm", "python", "short-video", "subtitles", "text-to-speech", "tiktok", "video-automation", "video-workflow", "workflow-automation", "youtube-shorts"]}, {"name": "microsoft/terminal", "by": "microsoft", "stars": 104617, "lang": "C++", "intro": "The new Windows Terminal and the original Windows console host, all in the same place!", "url": "https://github.com/microsoft/terminal", "topics": ["cmd", "command-line", "console", "contributions-welcome", "good-first-issue", "hacktoberfest", "terminal", "windows", "windows-console", "windows-terminal", "wsl"]}, {"name": "DietrichGebert/ponytail", "by": "DietrichGebert", "stars": 104415, "lang": "JavaScript", "intro": "Makes your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote.", "url": "https://github.com/DietrichGebert/ponytail", "topics": ["agent-skills", "ai-agents", "claude", "claude-code", "claude-code-plugin", "cursor-rules", "developer-tools", "llm", "prompt-engineering", "yagni"]}, {"name": "rasbt/LLMs-from-scratch", "by": "rasbt", "stars": 102817, "lang": "Jupyter Notebook", "intro": "Implement a ChatGPT-like LLM in PyTorch from scratch, step by step", "url": "https://github.com/rasbt/LLMs-from-scratch", "topics": ["ai", "artificial-intelligence", "attention-mechanism", "deep-learning", "finetuning", "from-scratch", "generative-ai", "gpt", "instruction-tuning", "language-model", "large-language-models", "llm", "machine-learning", "natural-language-processing", "pretraining", "python", "pytorch", "tokenizer", "transformers"]}, {"name": "pytorch/pytorch", "by": "pytorch", "stars": 102428, "lang": "Python", "intro": "Tensors and Dynamic neural networks in Python with strong GPU acceleration", "url": "https://github.com/pytorch/pytorch", "topics": ["autograd", "deep-learning", "gpu", "machine-learning", "neural-network", "numpy", "python", "tensor"]}, {"name": "Anduin2017/HowToCook", "by": "Anduin2017", "stars": 101857, "lang": "", "intro": "Programmer's guide about how to cook at home.", "url": "https://github.com/Anduin2017/HowToCook", "topics": ["chinese", "cookbook", "cooking", "dishes", "recipes"]}, {"name": "neovim/neovim", "by": "neovim", "stars": 101805, "lang": "Vim Script", "intro": "Vim-fork focused on extensibility and usability", "url": "https://github.com/neovim/neovim", "topics": ["api", "c", "lua", "neovim", "nvim", "text-editor", "vim"]}, {"name": "fastapi/fastapi", "by": "fastapi", "stars": 101629, "lang": "Python", "intro": "FastAPI framework, high performance, easy to learn, fast to code, ready for production", "url": "https://github.com/fastapi/fastapi", "topics": ["api", "async", "asyncio", "fastapi", "framework", "json", "json-schema", "openapi", "openapi3", "pydantic", "python", "python-types", "python3", "redoc", "rest", "starlette", "swagger", "swagger-ui", "uvicorn", "web"]}, {"name": "angular/angular", "by": "angular", "stars": 100986, "lang": "TypeScript", "intro": "Deliver web apps with confidence 🚀", "url": "https://github.com/angular/angular", "topics": ["angular", "javascript", "pwa", "typescript", "web", "web-framework", "web-performance"]}];
+const SKILL_TOPIC_STOP = new Set(['python','javascript','typescript','go','rust','java','c','cpp','c++','c#','html','css','shell','php','ruby','kotlin','swift','scala','dart','lua','r','perl','sql','node','vue','react','django','flask','spring','jquery','bootstrap','awesome','tutorial','example','demo','library','api','web','app','github','gitlab','open-source','utils','utility','utilities','plugin','plugins','extension','extensions','cross-platform','windows','macos','linux','android','ios','npm','pip','arch','homebrew','hacktoberfest','awesome-list','ai','llm','ai-agents','openai','claude','mcp','gpt','chatbot','generative-ai','machine-learning','deep-learning','agents','agent','rag','nlp','computer-vision','speech','transformer','pytorch','tensorflow','diffusion','stable-diffusion','image-generation','text-to-image','embedding','llm-framework','gemini','anthropic','copilot','assistant','claude-code','chatgpt','codex','skills','gemini-cli','cursor','agent-skills','agentic','windsurf','aider','ollama','vllm','comfyui','langchain','llms','llm']);
+const SKILL_TOPIC_CN = {ocr:'OCR',pdf:'PDF',automation:'自动化',cli:'命令行',tool:'工具',tools:'工具',scraping:'爬虫',scraper:'爬虫',crawler:'爬虫',download:'下载',downloader:'下载',screenshot:'截图',screen:'截图',ai:'AI',llm:'大模型',ml:'机器学习',deeplearning:'深度学习',bot:'机器人',framework:'框架',game:'游戏',music:'音乐',video:'视频',audio:'音频',browser:'浏览器',editor:'编辑器',ide:'IDE',terminal:'终端',docker:'Docker',kubernetes:'K8s',k8s:'K8s',database:'数据库',db:'数据库',security:'安全',devops:'DevOps',monitoring:'监控',proxy:'代理',vpn:'VPN',emulator:'模拟器',productivity:'效率',note:'笔记',notes:'笔记',markdown:'Markdown',blog:'博客',cms:'CMS',chat:'聊天',ui:'UI',components:'组件',animation:'动效',image:'图像',imaging:'图像',nlp:'NLP',cv:'计算机视觉','computer-vision':'计算机视觉',speech:'语音',translate:'翻译',search:'搜索',spider:'爬虫',test:'测试',testing:'测试',build:'构建',compiler:'编译器',json:'JSON',yaml:'YAML',csv:'CSV',excel:'Excel',spreadsheet:'表格',ebook:'电子书',book:'电子书',rss:'RSS',calendar:'日历',todo:'待办',task:'任务',password:'密码',auth:'认证',encrypt:'加密',backup:'备份',sync:'同步',cloud:'云',server:'服务器',client:'客户端',sdk:'SDK',rest:'REST',graphql:'GraphQL',websocket:'WebSocket',http:'HTTP',url:'URL',regex:'正则',validator:'校验',generator:'生成器','3d':'3D',svg:'SVG',font:'字体',design:'设计',figma:'Figma',icon:'图标',theme:'主题',template:'模板',boilerplate:'模板',starter:'脚手架',package:'包管理','self-hosted':'自托管',selfhosted:'自托管',media:'媒体',streaming:'流媒体',photos:'相册',whiteboard:'白板',canvas:'画布',draw:'绘图',knowledge:'知识库','knowledge-base':'知识库',interview:'面试',education:'教程',algorithms:'算法','system-design':'系统设计','version-control':'版本控制','screen-recorder':'录屏','upload':'上传','command-line':'命令行','machine-learning':'机器学习','deep-learning':'深度学习','web-crawler':'爬虫','selfhosted':'自托管',nodejs:'Node.js',nextjs:'Next.js',programming:'编程',golang:'Go 语言',algorithm:'算法',development:'开发',free:'免费软件',library:'库',utility:'实用工具',utilities:'实用工具',shell:'Shell',script:'脚本',scripting:'脚本',bots:'机器人',api:'接口',plugin:'插件',plugins:'插件',extension:'扩展',extensions:'扩展',templates:'模板',example:'示例',examples:'示例',demo:'演示',tutorial:'教程',tutorials:'教程',guide:'指南',docs:'文档',documentation:'文档',books:'书籍',course:'课程',courses:'课程',website:'网站',app:'应用',webapp:'网页应用',mobile:'移动端',desktop:'桌面端',backend:'后端',frontend:'前端',fullstack:'全栈',cache:'缓存',queue:'队列',messaging:'消息',authentication:'认证',authorization:'授权',crypto:'加密',cryptography:'加密',networking:'网络',dns:'DNS',https:'HTTPS',restful:'REST',xml:'XML',toml:'TOML',docx:'Word',latex:'LaTeX',images:'图像',gif:'GIF',gaming:'游戏',interpreter:'解释器',debugger:'调试器',linter:'代码检查',formatter:'格式化',tests:'测试',ci:'持续集成',cd:'持续部署',cicd:'CI/CD',aws:'AWS',azure:'Azure',gcp:'GCP',vercel:'Vercel',netlify:'Netlify',cloudflare:'Cloudflare',firebase:'Firebase',supabase:'Supabase',selfhosting:'自托管',homelab:'家庭实验室',backups:'备份',observability:'可观测',logging:'日志',logger:'日志',analytics:'分析',scrapers:'爬虫',crawlers:'爬虫',uploader:'上传',todos:'待办',tasks:'任务',knowledgebase:'知识库',wiki:'维基',productivitytools:'效率工具',timer:'计时',schedule:'日程',scheduler:'调度',scheduling:'调度',reminder:'提醒',reminders:'提醒',financial:'财务',budget:'预算',budgeting:'预算',accounting:'记账',invoice:'发票',passwords:'密码',vault:'密码库',bookmarks:'书签',translation:'翻译',weather:'天气',map:'地图',maps:'地图',location:'定位',messenger:'即时通讯',email:'邮件',newsletter:'邮件订阅',news:'新闻',social:'社交',socialmedia:'社交媒体',forum:'论坛',community:'社区',ecommerce:'电商',shop:'商店',shopping:'购物',payment:'支付',payments:'支付',static:'静态站点','static-site':'静态站点',seo:'SEO',ux:'体验',component:'组件',icons:'图标',fonts:'字体',colorscheme:'配色方案',themes:'主题',css:'CSS',css3:'CSS3',html:'HTML',html5:'HTML5',javascript:'JavaScript',typescript:'TypeScript',python:'Python',rust:'Rust',go:'Go',java:'Java',kotlin:'Kotlin',scala:'Scala',dart:'Dart',flutter:'Flutter',react:'React',vue:'Vue',angular:'Angular',svelte:'Svelte',node:'Node',deno:'Deno',bun:'Bun',npm:'npm',pip:'pip',cargo:'Cargo',linux:'Linux',windows:'Windows',macos:'macOS',android:'安卓',ios:'iOS',chrome:'Chrome',firefox:'Firefox',safari:'Safari',vscode:'VS Code',vim:'Vim',neovim:'Neovim',emacs:'Emacs',git:'Git',github:'GitHub',gitlab:'GitLab',bitbucket:'Bitbucket',sqlite:'SQLite',postgresql:'PostgreSQL',mysql:'MySQL',mariadb:'MariaDB',mongodb:'MongoDB',redis:'Redis',elasticsearch:'Elasticsearch',nginx:'Nginx',apache:'Apache',prometheus:'Prometheus',grafana:'Grafana',kafka:'Kafka',rabbitmq:'RabbitMQ',tensorflow:'TensorFlow',pytorch:'PyTorch',pandas:'Pandas',numpy:'NumPy',sklearn:'Scikit-learn',opencv:'OpenCV',huggingface:'Hugging Face',jest:'Jest',pytest:'Pytest',selenium:'Selenium',playwright:'Playwright',puppeteer:'Puppeteer',postman:'Postman',stripe:'Stripe',twilio:'Twilio',jwt:'JWT',oauth:'OAuth',terraform:'Terraform',ansible:'Ansible',jenkins:'Jenkins',webpack:'Webpack',vite:'Vite',babel:'Babel',eslint:'ESLint',prettier:'Prettier',sass:'Sass',less:'Less',redux:'Redux',prisma:'Prisma',mongoose:'Mongoose',express:'Express',fastapi:'FastAPI',django:'Django',flask:'Flask',spring:'Spring',laravel:'Laravel',rails:'Rails',wordpress:'WordPress',notion:'Notion',obsidian:'Obsidian',logseq:'LogSeq',trello:'Trello',slack:'Slack',discord:'Discord',telegram:'Telegram',whatsapp:'WhatsApp',wechat:'微信',heroku:'Heroku',unity:'Unity',godot:'Godot',blender:'Blender',photoshop:'Photoshop',illustrator:'Illustrator',sketch:'Sketch',adobexd:'Adobe XD',jira:'Jira',confluence:'Confluence',drawio:'Draw.io',excalidraw:'Excalidraw',miro:'Miro',n8n:'n8n',zapier:'Zapier',ifttt:'IFTTT',airflow:'Airflow',githubactions:'GitHub Actions',gitlabci:'GitLab CI',circleci:'CircleCI',argocd:'ArgoCD',flux:'Flux',helm:'Helm',envoy:'Envoy',traefik:'Traefik',etcd:'etcd',consul:'Consul',vault:'Vault',istio:'Istio',linkerd:'Linkerd',packer:'Packer',vagrant:'Vagrant',dockercompose:'Docker Compose',scikitlearn:'Scikit-learn',scipy:'SciPy',matplotlib:'Matplotlib',seaborn:'Seaborn',plotly:'Plotly',xgboost:'XGBoost',pillow:'Pillow',spacy:'spaCy',clickhouse:'ClickHouse',duckdb:'DuckDB',protobuf:'Protobuf',avro:'Avro',memcached:'Memcached',nats:'NATS',auth0:'Auth0',passport:'Passport',bcrypt:'Bcrypt',sendgrid:'SendGrid',mailgun:'Mailgun',alipay:'支付宝',wechatpay:'微信支付'};
+let skillRepos = SKILL_TRENDING_DEFAULT.map(r=>({name:r.name,by:r.by,stars:r.stars,lang:r.lang||'',intro:r.intro||'',url:r.url,topics:(r.topics||[]).map(t=>t.toLowerCase())}));
+let skillTopics = [];
+let skillCur = 'hot';
+function fmtStars(n){return n>=1000?(n/1000).toFixed(1)+'k':(''+n);}
+function cnTopic(k){return SKILL_TOPIC_CN[k]||(k.charAt(0).toUpperCase()+k.slice(1));}
+function buildTopics(repos){
+  const cnt={};
+  repos.forEach(r=>{(r.topics||[]).forEach(t=>{if(!SKILL_TOPIC_STOP.has(t))cnt[t]=(cnt[t]||0)+1;});});
+  return Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,c])=>({key:k,label:cnTopic(k),count:c}));
+}
+function renderSkillChips(){
+  const box=document.getElementById('skillChips');
+  let h='<span class="chip'+(skillCur==='hot'?' active':'')+'" data-topic="hot">🔥 热门</span>';
+  skillTopics.forEach(t=>{h+='<span class="chip'+(skillCur===t.key?' active':'')+'" data-topic="'+t.key+'">'+t.label+'</span>';});
+  box.innerHTML=h;
+}
+function renderSkillPicks(){
+  const g=document.getElementById('skillGrid'); g.innerHTML='';
+  let list=[];
+  if(skillCur==='hot'){list=skillRepos.slice().sort((a,b)=>b.stars-a.stars).slice(0,12);}
+  else{list=skillRepos.filter(r=>(r.topics||[]).indexOf(skillCur)>=0).sort((a,b)=>b.stars-a.stars);}
+  if(!list.length){g.innerHTML='<div class="tl-empty">该主题暂无数据，点「↻ 刷新趋势」重新抓取</div>';return;}
+  const tag = skillCur==='hot'?'🔥 热门':(skillTopics.find(t=>t.key===skillCur)||{label:cnTopic(skillCur)}).label;
+  list.forEach(s=>{
+    const a=document.createElement('a'); a.className='skill-card';
+    a.href=s.url; a.target='_blank'; a.rel='noopener';
+    const lang=s.lang?'<span class="skill-lang">'+s.lang+'</span>':'';
+    a.innerHTML='<div class="skill-top">'+
+        '<span class="skill-region">'+tag+'</span>'+
+        '<span class="skill-stars">'+fmtStars(s.stars)+' \u2605</span></div>'
+      +'<div class="skill-name">'+s.name+'</div>'
+      +'<div class="skill-by">'+s.by+' '+lang+'</div>'
+      +'<div class="skill-intro">'+escapeHtml(s.intro)+'</div>'
+      +'<div class="skill-go"><span>跳转查看</span><span class="arrow">\u2197</span></div>';
+    g.appendChild(a);
+  });
+}
+async function fetchTrending(force){
+  const note=document.getElementById('skillNote');
+  const cached=JSON.parse(localStorage.getItem('wb_skill_trending')||'null');
+  if(cached&&cached.repos&&cached.repos.length&&!force&&(Date.now()-cached.ts<6*3600*1000)){
+    skillRepos=cached.repos; skillTopics=cached.topics||buildTopics(cached.repos);
+    if(note)note.textContent='（本地缓存 · '+skillRepos.length+' 个仓库 / '+skillTopics.length+' 个动态分类）';
+    renderSkillChips(); renderSkillPicks(); return;
+  }
+  if(note)note.textContent='抓取 GitHub 趋势中…';
+  try{
+    const since=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    const q='stars:>500 pushed:>'+since;
+    const u='https://api.github.com/search/repositories?q='+encodeURIComponent(q)+'&sort=stars&order=desc&per_page=100';
+    const r=await fetch(u,{headers:{'Accept':'application/vnd.github.mercy-preview+json'}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    const repos=(j.items||[]).map(it=>({name:it.full_name,by:it.owner.login,stars:it.stargazers_count,lang:it.language||'',intro:(it.description||'\u2014').replace(/\n/g,' '),url:it.html_url,topics:(it.topics||[]).map(t=>t.toLowerCase())}));
+    skillRepos=repos; skillTopics=buildTopics(repos);
+    try{localStorage.setItem('wb_skill_trending',JSON.stringify({repos,topics:skillTopics,ts:Date.now()}));}catch(e){}
+    if(note)note.textContent='GitHub 实时趋势 · '+repos.length+' 个仓库 · '+skillTopics.length+' 个动态分类 · 更新于 '+new Date().toLocaleTimeString('zh-CN');
+  }catch(e){
+    skillTopics=buildTopics(skillRepos);
+    if(note)note.textContent='抓取失败：'+(e.message||e)+'（已用内置快照）';
+  }
+  renderSkillChips(); renderSkillPicks();
+}
+skillTopics=buildTopics(skillRepos);
+renderSkillChips(); renderSkillPicks();
+fetchTrending(false);
+document.getElementById('skillChips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c||!c.dataset.topic)return;
+  skillCur=c.dataset.topic;
+  document.querySelectorAll('#skillChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); renderSkillPicks();
+});
+document.getElementById('skillRefresh').addEventListener('click',()=>fetchTrending(true));
+
+/* ================= PLATFORM NOTICES (board 01 / 04) ================= */
+let platNotices=[
+  // 抖音
+  {p:'douyin',date:'2026-08-29',title:'抖音电商严打诱导第三方交易',
+   intro:'公布典型违规案例：二维码引流、微信私下交易、粉丝群诈骗、虚假提货卡、兼职投资骗局等；违规者下架商品、限单冻款、停业清退，达人冻结佣金或关闭电商权限。',
+   url:'https://www.toutiao.com/article/7678906223533490739/'},
+  {p:'douyin',date:'2026-08-20',title:'清洁电器专项治理：严打虚假宣传、虚假测评',
+   intro:'抖音电商安全与信任中心整治清洁电器品类虚假宣传与虚假测评，要求售后权益宣传与页面、规则及实际保障一致，不得用口播承诺替代页面规则。',
+   url:'https://so.html5.qq.com/page/real/search_news?docid=70000021_6716a869f8e99852'},
+  {p:'douyin',date:'2026-08-13',title:'修订《【滋补保健】行业管理规范》生效',
+   intro:'调整定向准入类目清出标准，涉及冬虫夏草、燕窝、即食燕窝、养生泡酒料、肉苁蓉等数十个滋补保健类目，公示期满后正式生效。',
+   url:'https://school.jinritemai.com/doudian/web/article/aJoU3XubXQTs'},
+  {p:'douyin',date:'2026-08-12',title:'修订《【母婴图书玩具宠物】行业管理规范》生效',
+   intro:'新增冷鲜猫粮、冷鲜狗粮为定向准入类目；兔子活体、鼠类活体、鹦鹉（特种养殖）、宠物貂活体转为暂停招商。',
+   url:'https://school.jinritemai.com/doudian/web/article/aJoR7xZX1itz'},
+
+  // 小红书
+  {p:'xhs',date:'2026-08-29',title:'严打热点事件AI造谣、AI换脸等虚假内容',
+   intro:'薯管家公告：处置热点事件AI伪造聊天截图笔记38篇、相关当事人AI换脸视频312个，上线针对此类内容的新增治理策略；AI仿冒名人累计处置笔记5.65万篇。',
+   url:'https://www.toutiao.com/article/7679260446251188772/'},
+  {p:'xhs',date:'2026-08-26',title:'治理恶意起号和违规营销',
+   intro:'月处置违规账号179.9万个：虚假仿冒号1.1万（"韦*奕"等）、抄袭同质化号42.7万、互动作弊号17.8万、违规营销号46.9万、水下商家71.4万。',
+   url:'https://new.qq.com/rain/a/20260826A0BF9R00'},
+  {p:'xhs',date:'2026-08-19',title:'关于AI伪造人脸和高频AI脸的治理公告',
+   intro:'严禁使用AI合成/换脸伪造名人形象带货、冒充真人身份运营账号；限制高频同质化AI人脸内容；违者将限流、下架、封禁并移交相关部门。',
+   url:'https://weibo.com/5859555080/5333590091239590'},
+  {p:'xhs',date:'2026-08-05',title:'毒动画等涉未成年人内容治理公告',
+   intro:'落实"清朗·未成年人网络保护"，累计处置违规笔记8.4万余篇、违规评论10.5万余条、违规账号3571个，重点打击AI魔改经典动画、诱导未成年人不良交友等。',
+   url:'https://www.toutiao.com/article/7670339248385540648'},
+
+  // 视频号/微信小店
+  {p:'channels',date:'2026-08-21',title:'关于「微信小店调整部分场景经营类目」公告',
+   intro:'自9月1日起关闭【食品饮料-传统滋补】下部分类目"部分场景经营"，同时开放【生鲜、农资园艺】部分类目，达标后可升级"全场景经营"支持视频号等场景。',
+   url:'https://store.weixin.qq.com/'},
+  {p:'channels',date:'2026-08-19',title:'《账号体系管理规则-20260817版本》修订生效',
+   intro:'视频号账号自然年内变更关联商家达3次后，自营身份年GMV≥1000万且满足合规条件可继续变更，全年变更不超过12次。',
+   url:'https://store.weixin.qq.com/chengzhang/webdoc/wiki/9745/b0fcc60d8df9142b/growth_center_rule_for_store/28'},
+  {p:'channels',date:'2026-08-19',title:'多项规则集中生效',
+   intro:'《一级类目-图书》类目管理规则修订、《三级类目-中小学教材》定向准入标准新规、《"好店"标识管理规则》修订同日生效。',
+   url:'https://store.weixin.qq.com/'},
+  {p:'channels',date:'2026-08-03',title:'关于「短视频带货场景 AI 应用」治理公告',
+   intro:'创作者在发布含AI生成内容的带货短视频时，需符合《微信视频号运营规范》并主动添加AI标注，否则限制分发。',
+   url:'https://store.weixin.qq.com/'},
+
+  // 淘宝
+  {p:'taobao',date:'2026-08-31',title:'天猫《未按约定提供相关资质》规则变更正式执行',
+   intro:'8月17日公示、8月24日生效并设7天过渡期，8月31日起全面执行；资质不全、逾期未更新、资质不符的店铺将按标准受罚。',
+   url:'https://shuaishou.com/school/infos84185.html'},
+  {p:'taobao',date:'2026-08-26',title:'淘宝规则中心多规则意见征集中',
+   intro:'《淘宝网保证金管理规范》《淘宝网市场管理与违规处理规范》《淘宝网关于扰乱市场秩序实施细则》等多项规则处于意见征集阶段，商家可关注公示。',
+   url:'https://rulechannel.taobao.com/'},
+  {p:'taobao',date:'2026-08-12',title:'淘宝天猫售后新规正式执行',
+   intro:'《违背承诺的规则》：家电/数码/大件家具/卫浴须明确上门维修时效；承诺不兑现按5元/单现金赔付；赠品须通过平台工具发布并明示规格。',
+   url:'https://rulechannel.taobao.com/'},
+  {p:'taobao',date:'2026-08-03',title:'《商品信息质量分管理规范》变更生效',
+   intro:'调整商品扶优质量分生效条件为"基础质量分≥80分"，并增加"质量分≥20分且满足活动要求可获得更多额外曝光"的表述。',
+   url:'https://tbxuetang.com/information/detail.jhtml?id=1813'},
+
+  // 星图（巨量星图 / 达人商单平台）
+  {p:'xingtu',date:'2026-08-18',title:'指派任务一口价报价升级',
+   intro:'指派任务短视频一口价从"按时长"整合为"植入视频/定制视频"两类报价；协商改价幅度放宽至原报价 70%–300%；8/17 起通知、8/18 统一切换并沿用未更新达人的历史报价。',
+   url:'https://www.xingtu.cn/help-center/author/208549'},
+  {p:'xingtu',date:'2026-08-24',title:'巨量星图虚假商单管控规则修订生效',
+   intro:'规则于 8/17 修订、8/24 生效，更新虚假商单（刷量、虚假交易、虚假履约等）的识别标准、处置措施与申诉流程。',
+   url:'https://star.toutiao.com/help-center/demander/144810'},
+  {p:'xingtu',date:'2026-08-28',title:'抖音"违规蹭热不当获利"治理公告',
+   intro:'整体从严处置借热点以虚假身份/内容/营销/流量不当获利的行为，严禁"假揭黑真获利"、搬运拼凑虚构营销信息获利，星图达人商单内容同样适用。',
+   url:'https://stcn.com/article/detail/1302174.html'}
+];
+const platName={douyin:'抖音',xhs:'小红书',channels:'视频号',taobao:'淘宝',xingtu:'星图'};
+let platCur='all';
+function renderPlatNotices(){
+  const g=document.getElementById('platGrid'); if(!g)return; g.innerHTML='';
+  const list=(platLive||platNotices).filter(n=>platCur==='all'||n.p===platCur);
+  if(!list.length){g.innerHTML='<div class="plat-note">该平台暂无通告快照</div>';return;}
+  list.forEach(n=>{
+    const a=document.createElement('a');
+    a.className='plat-card'; a.href=n.url; a.target='_blank'; a.rel='noopener noreferrer';
+    a.innerHTML=
+      '<div class="plat-top"><span class="plat-tag '+n.p+'">'+platName[n.p]+'</span>'+
+      '<span class="plat-date">'+n.date+'</span></div>'+
+      '<div class="plat-title">'+escapeHtml(n.title)+'</div>'+
+      '<div class="plat-intro">'+escapeHtml(n.intro)+'</div>'+
+      '<div class="plat-go"><span>查看官方原文 ↗</span><span class="arrow">→</span></div>';
+    g.appendChild(a);
+  });
+}
+document.getElementById('platChips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c||!c.dataset.p)return;
+  platCur=c.dataset.p;
+  document.querySelectorAll('#platChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); renderPlatNotices();
+});
+
+/* ================= WOODFISH · 电子木鱼 ================= */
+(function(){
+  const KEY='wb_muyu',SND='wb_muyu_snd';
+  const svg=document.getElementById('muyuSvg'),stage=document.getElementById('muyuStage'),
+        fx=document.getElementById('muyuFx'),cntEl=document.getElementById('muyuCount'),sndEl=document.getElementById('muyuSound');
+  if(!svg||!cntEl) return;
+  let merit=parseInt(localStorage.getItem(KEY)||'0',10)||0;
+  let sndOn=(localStorage.getItem(SND)||'0')==='1';
+  let ac=null;
+  function paint(){cntEl.innerHTML='功德 <em>×</em>'+merit;}
+  function setSnd(){sndEl.textContent='SOUND : '+(sndOn?'ON':'OFF');sndEl.classList.toggle('on',sndOn);}
+  function tok(){
+    if(!sndOn) return;
+    try{
+      ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+      const t=ac.currentTime;
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type='sine';o.frequency.setValueAtTime(230,t);
+      o.frequency.exponentialRampToValueAtTime(92,t+.18);
+      g.gain.setValueAtTime(.0001,t);
+      g.gain.exponentialRampToValueAtTime(.26,t+.008);
+      g.gain.exponentialRampToValueAtTime(.0001,t+.22);
+      o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.24);
+      const n=ac.createBufferSource(),buf=ac.createBuffer(1,480,44100),d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3);
+      n.buffer=buf;const ng=ac.createGain();ng.gain.value=.11;n.connect(ng).connect(ac.destination);n.start(t);
+    }catch(e){}
+  }
+  function knock(e){
+    merit++;localStorage.setItem(KEY,String(merit));paint();
+    svg.classList.remove('knock');void svg.offsetWidth;svg.classList.add('knock');
+    setTimeout(()=>svg.classList.remove('knock'),130);
+    tok();
+    const b=document.createElement('b');b.textContent='功德 +1';
+    const sr=stage.getBoundingClientRect();
+    const x=(e&&typeof e.clientX==='number')?(e.clientX-sr.left):(sr.width/2);
+    b.style.left=(x-22)+'px';b.style.top=(sr.height*.16)+'px';
+    fx.appendChild(b);setTimeout(()=>b.remove(),950);
+  }
+  svg.addEventListener('click',knock);
+  svg.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();knock();}});
+  sndEl.addEventListener('click',()=>{sndOn=!sndOn;localStorage.setItem(SND,sndOn?'1':'0');setSnd();if(sndOn)tok();});
+  paint();setSnd();
+})();
+
+/* ================= KANBAN ================= */
+const PROJ_KEY='wb_proj';
+const projectsSeed=[
+  {id:'p1',name:'达人发薪系统',state:'iter',pct:80,note:'已上线，后续有待优化模块',createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'p2',name:'视频号投放数据平台',state:'live',pct:100,note:'开发完成，已完成线上网站部署',createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'p3',name:'猫猫厨房 · 个人餐饮管理',state:'live',pct:68,note:'小程序备案已上线，待完善部分功能',createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'p4',name:'搜道佣金筛查系统',state:'plan',pct:30,note:'前期规划，框架已搭但遇问题待处理',createdAt:SEED_EPOCH,_mts:SEED_EPOCH}
+];
+// 兼容旧格式：早期只存了 {p1:'live', p2:'iter'}，现在改为存完整数组
+function migrateProj(raw){
+  try{
+    const o=JSON.parse(raw||'null');
+    if(!o) return null;
+    if(Array.isArray(o)) return o;
+    return projectsSeed.map(p=>({...p, state:o[p.id]||p.state}));
+  }catch(e){ return null; }
+}
+let projects=migrateProj(localStorage.getItem(PROJ_KEY)) || projectsSeed.slice();
+function saveProj(){
+  localStorage.setItem(PROJ_KEY, JSON.stringify(projects));
+  snapshotLocal(); syncDebounced();
+}
+const colDefs=[
+  {key:'plan',name:'Planning · 规划中',cls:'plan'},
+  {key:'live',name:'Live · 已上线',cls:'live'},
+  {key:'iter',name:'Iterating · 迭代中',cls:''}
+];
+let draggedId=null;
+function renderKanban(){
+  const kb=document.getElementById('kanban');
+  kb.innerHTML='';
+  colDefs.forEach(col=>{
+    const items=projects.filter(p=>!p._deleted&&p.state===col.key);
+    const c=document.createElement('div');
+    c.className='kcol'; c.dataset.state=col.key;
+    c.innerHTML='<div class="kcol-h">'+col.name+'<span>'+items.length+'</span></div>';
+    items.forEach(p=>{
+      const k=document.createElement('div');
+      k.className='kcard'; k.draggable=true;
+      k.innerHTML='<div class="kn">'+p.name+'<span class="kdel" title="删除项目">×</span></div>'
+        +'<span class="st '+col.cls+'">'+col.name.split(' · ')[1]+'</span>'
+        +'<div class="ks">'+p.note+'</div>'
+        +'<div class="pbar"><i style="width:'+p.pct+'%"></i></div>'
+        +'<div class="prow"><span>PROGRESS</span><span>'+p.pct+'%</span></div>';
+      k.querySelector('.kdel').addEventListener('click',(e)=>{e.stopPropagation();if(confirm('删除项目「'+p.name+'」？')){p._deleted=true;p._mts=Date.now();saveProj();renderKanban();}});
+      k.addEventListener('dragstart',e=>{draggedId=p.id;k.classList.add('drag');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',p.id);});
+      k.addEventListener('dragend',()=>{k.classList.remove('drag');draggedId=null;});
+      c.appendChild(k);
+    });
+    const add=document.createElement('div');
+    add.className='kcard add';
+    add.innerHTML='<span>+</span>NEW PROJECT';
+    add.addEventListener('click',()=>addProject(col.key));
+    c.appendChild(add);
+    c.addEventListener('dragover',e=>{e.preventDefault();c.classList.add('over');});
+    c.addEventListener('dragleave',()=>c.classList.remove('over'));
+    c.addEventListener('drop',e=>{
+      e.preventDefault(); c.classList.remove('over');
+      const p=projects.find(x=>x.id===draggedId);
+      if(p&&p.state!==col.key){p.state=col.key;p._mts=Date.now();saveProj();renderKanban();}
+    });
+    kb.appendChild(c);
+  });
+}
+renderKanban();
+function addProject(state){
+  const name=prompt('项目名称');
+  if(!name||!name.trim())return;
+  const note=prompt('项目备注 / 当前状态')||'';
+  let pct=parseInt(prompt('当前进度 0-100')||'0',10);
+  if(isNaN(pct)||pct<0)pct=0; if(pct>100)pct=100;
+  const now=Date.now();
+  projects.push({id:newId(),name:name.trim(),state:state,pct:pct,note:note.trim(),createdAt:now,_mts:now});
+  saveProj(); renderKanban();
+}
+
+/* ================= TASKS ================= */
+const REC_LABEL={once:'一次',daily:'每天',weekly:'每周',monthly:'每月'};
+const TASK_KEY='wb_tasks_v2';
+const defaults=[
+  {id:'w1',type:'extra',text:'跟进达人发薪系统待优化模块需求',recur:'once',dueDate:'2026-08-18',completedRecords:[],createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'w2',type:'extra',text:'视频号投放平台本周数据复盘',recur:'weekly',dueDate:'2026-08-15',completedRecords:[],createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'w3',type:'monthly',text:'月度服务器费用核对',recur:'monthly',dueDate:'2026-08-05',completedRecords:[],createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'w4',type:'monthly',text:'团队周报汇总',recur:'weekly',dueDate:'2026-08-17',completedRecords:[],createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'l1',type:'life',text:'健身',recur:'daily',dueDate:'2026-08-17',completedRecords:[],createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'l2',type:'life',text:'读完《人工智能治理》专题',recur:'once',dueDate:'2026-08-20',completedRecords:[],createdAt:SEED_EPOCH,_mts:SEED_EPOCH},
+  {id:'l3',type:'life',text:'周末采购 + 猫咪用品补货',recur:'weekly',dueDate:'2026-08-22',completedRecords:[],createdAt:SEED_EPOCH,_mts:SEED_EPOCH}
+];
+let tasks=JSON.parse(localStorage.getItem(TASK_KEY)||'null')||defaults.slice();
+function saveTasks(){localStorage.setItem(TASK_KEY,JSON.stringify(tasks));snapshotLocal();syncDebounced();}
+function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function isDone(t,date){return t.completedRecords.includes(date);}
+function latestDueDate(t, beforeStr){
+  const before=strToDate(beforeStr);
+  if(t.recur==='once')return t.dueDate;
+  if(t.recur==='daily')return beforeStr;
+  if(t.recur==='weekly'){
+    const anchor=strToDate(t.dueDate), anchorDay=anchor.getDay();
+    const day=before.getDay();
+    // current-week occurrence: future if today is before due day, past (overdue) if on/after
+    const diff=anchorDay-day;
+    const d=new Date(before); d.setDate(d.getDate()+diff);
+    return toStr(d);
+  }
+  if(t.recur==='monthly'){
+    const anchor=strToDate(t.dueDate), day=anchor.getDate();
+    const y=before.getFullYear(), m=before.getMonth()+1;
+    return makeMonthDate(y,m,day);
+  }
+  return t.dueDate;
+}
+function recursOn(t,dateStr){
+  if(t.recur==='once')return dateStr===t.dueDate;
+  if(t.recur==='daily')return true;
+  if(t.recur==='weekly')return strToDate(dateStr).getDay()===strToDate(t.dueDate).getDay();
+  if(t.recur==='monthly'){
+    const [y,m]=dateStr.split('-').map(Number);
+    return makeMonthDate(y,m,strToDate(t.dueDate).getDate())===dateStr;
+  }
+  return false;
+}
+function isPendingToday(t){const ld=latestDueDate(t,todayStr());return !isDone(t,ld);}
+
+const filters={extra:'pending',monthly:'pending',life:'pending'};
+function renderList(type){
+  const ul=document.getElementById(type+'List');
+  const filter=filters[type];
+  ul.innerHTML='';
+  const arr=tasks.filter(t=>!t._deleted&&t.type===type);
+  let rows=[];
+  if(filter==='pending'){
+    rows=arr.filter(t=>isPendingToday(t)).map(t=>({t,done:false,date:latestDueDate(t,todayStr())}));
+  } else {
+    arr.forEach(t=>{
+      t.completedRecords.slice().reverse().forEach(d=>rows.push({t,done:true,date:d}));
+    });
+  }
+  if(rows.length===0){
+    const li=document.createElement('li');li.className='empty';
+    li.textContent=filter==='pending'?'NO PENDING ITEMS':'NO COMPLETED ITEMS';
+    ul.appendChild(li); return;
+  }
+  rows.forEach(({t,done,date})=>{
+    const li=document.createElement('li');
+    if(done)li.classList.add('done');
+    const cb=document.createElement('span');cb.className='cb'+(done?' on':'');cb.textContent=done?'✓':'';
+    cb.onclick=()=>{
+      const d=filter==='pending'?latestDueDate(t,todayStr()):date;
+      const idx=t.completedRecords.indexOf(d);
+      if(idx>-1)t.completedRecords.splice(idx,1);else t.completedRecords.push(d);
+      t._mts=Date.now();
+      saveTasks(); renderList(type); updateOpenCounts(); renderCalendar(); updateAnalysis(); updateGlobalTodo();
+    };
+    const txt=document.createElement('span');txt.className='txt';txt.textContent=t.text;
+    const meta=document.createElement('span');meta.className='tmeta';
+    meta.textContent=(t.recur!=='once'?REC_LABEL[t.recur]+' · ':'')+formatShortDate(date);
+    const del=document.createElement('span');del.className='del';del.textContent='✕';
+    del.onclick=()=>{const it=tasks.find(x=>x.id===t.id);if(it){it._deleted=true;it._mts=Date.now();}saveTasks();renderList(type);updateOpenCounts();renderCalendar();updateAnalysis();updateGlobalTodo();};
+    li.append(cb,txt,meta,del);
+    ul.appendChild(li);
+  });
+}
+function updateOpenCounts(){
+  ['extra','monthly','life'].forEach(type=>{
+    const n=tasks.filter(t=>!t._deleted&&t.type===type).filter(isPendingToday).length;
+    document.getElementById(type+'Count').textContent=n+' OPEN';
+  });
+}
+function renderAllLists(){['extra','monthly','life'].forEach(renderList); updateOpenCounts();}
+function addTask(type){
+  const text=document.getElementById(type+'Input').value.trim();
+  const due=document.getElementById(type+'Date').value||todayStr();
+  const recur=document.getElementById(type+'Recur').value;
+  if(!text)return;
+  const now=Date.now();
+  tasks.push({id:newId(),type,text,recur,dueDate:due,completedRecords:[],createdAt:now,_mts:now});
+  document.getElementById(type+'Input').value='';
+  saveTasks(); renderList(type); updateOpenCounts(); renderCalendar(); updateAnalysis(); updateGlobalTodo();
+}
+['extra','monthly','life'].forEach(type=>{
+  document.getElementById(type+'Date').value=todayStr();
+  document.querySelector('button[data-add="'+type+'"]').onclick=()=>addTask(type);
+  document.getElementById(type+'Input').addEventListener('keydown',e=>{if(e.key==='Enter')addTask(type);});
+  document.querySelectorAll('.lp-tabs[data-group="'+type+'"] .chip').forEach(c=>{
+    c.addEventListener('click',()=>{
+      document.querySelectorAll('.lp-tabs[data-group="'+type+'"] .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active'); filters[type]=c.dataset.filter; renderList(type);
+    });
+  });
+});
+renderAllLists();
+
+/* ================= CALENDAR ================= */
+let calFilter='all';
+function getEvents(dateStr){
+  return tasks.filter(t=>{
+    if(t._deleted)return false;
+    if(!recursOn(t,dateStr))return false;
+    if(calFilter==='all')return true;
+    return t.type===calFilter;
+  });
+}
+function renderCalendar(){
+  const year=2026, month=8, today=17;
+  const first=new Date(year,month-1,1).getDay();
+  const days=new Date(year,month,0).getDate();
+  const events={18:'荣耀首销',19:'美加关税大限',20:'杰克逊霍尔年会'};
+  let html='<div class="cal-h"><span class="m">2026 / 08</span><span class="y">AUGUST · INDEPENDENT CALENDAR</span></div><div class="cal-grid">';
+  ['SUN','MON','TUE','WED','THU','FRI','SAT'].forEach(d=>html+='<div class="dow">'+d+'</div>');
+  for(let i=0;i<first;i++)html+='<div></div>';
+  for(let d=1;d<=days;d++){
+    const s='2026-08-'+String(d).padStart(2,'0');
+    const ev=getEvents(s);
+    const tip=events[d];
+    html+='<div class="cell'+(d===today?' today':'')+'" data-date="'+s+'">'+d;
+    if(ev.length||tip){
+      html+='<div class="dots">';
+      if(tip)html+='<i class="dot-extra" title="'+tip+'"></i>';
+      const types=new Set(ev.map(x=>x.type));
+      if(types.has('extra'))html+='<i class="dot-extra"></i>';
+      if(types.has('monthly'))html+='<i class="dot-monthly"></i>';
+      if(types.has('life'))html+='<i class="dot-life"></i>';
+      html+='</div>';
+    }
+    html+='</div>';
+  }
+  html+='</div><div class="legend">■ 今日：<b>08.17 MON</b> ｜ <i class="dot-extra"></i> 工作-Extra ｜ <i class="dot-monthly"></i> 工作-Monthly ｜ <i class="dot-life"></i> 生活-Life ｜ 点击日期筛选后查看事项</div>';
+  document.getElementById('calBody').innerHTML=html;
+  bindCalTip();
+}
+function bindCalTip(){
+  const tip=document.getElementById('calTip');
+  const body=document.getElementById('calBody');
+  body.querySelectorAll('.cell').forEach(cell=>{
+    cell.addEventListener('mouseenter',()=>{
+      const s=cell.dataset.date; if(!s)return;
+      const ev=getEvents(s);
+      if(!ev.length){tip.style.display='none';return;}
+      const h=tip.querySelector('.tip-h'); const b=tip.querySelector('.tip-body');
+      h.textContent=s.replace(/-/g,'.')+' · '+dayName(s);
+      b.innerHTML=ev.map(t=>'<div class="tip-i '+t.type+'">'+t.text+' <span style="color:var(--muted)">('+REC_LABEL[t.recur]+')</span></div>').join('');
+      const r=cell.getBoundingClientRect(), cr=document.getElementById('cal').getBoundingClientRect();
+      tip.style.display='block';
+      let left=r.left-cr.left+10;
+      if(left+180>cr.width)left=r.left-cr.left-170;
+      tip.style.left=left+'px';
+      tip.style.top=(r.bottom-cr.top+8)+'px';
+    });
+    cell.addEventListener('mouseleave',()=>{tip.style.display='none';});
+  });
+}
+document.getElementById('calFilter').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c)return;
+  document.querySelectorAll('#calFilter .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); calFilter=c.dataset.filter; renderCalendar();
+});
+renderCalendar();
+
+/* ================= ANALYSIS ================= */
+function updateAnalysis(){
+  const t=todayStr();
+  const ws=weekStart(t);
+  const weekDates=[];
+  for(let i=0;i<7;i++)weekDates.push(addDays(ws,i));
+
+  // pending this week
+  const pendingSet=[];
+  weekDates.forEach(d=>{
+    tasks.filter(tk=>!tk._deleted).forEach(tk=>{
+      const ld=latestDueDate(tk,d);
+      if(ld===d && !isDone(tk,ld))pendingSet.push({text:tk.text,type:tk.type,date:d});
+    });
+  });
+  document.getElementById('anaPending').textContent=String(pendingSet.length).padStart(2,'0');
+  document.getElementById('listPending').innerHTML=pendingSet.slice(0,6).map(x=>'<li>'+x.text+'<span class="dd">'+formatShortDate(x.date)+'</span></li>').join('')+(pendingSet.length>6?'<li>… '+pendingSet.length+' 项总计</li>':'');
+
+  // done this week
+  const doneSet=[];
+  tasks.filter(tk=>!tk._deleted).forEach(tk=>{
+    tk.completedRecords.forEach(d=>{
+      if(weekDates.includes(d))doneSet.push({text:tk.text,date:d});
+    });
+  });
+  document.getElementById('anaDone').textContent=String(doneSet.length).padStart(2,'0');
+  document.getElementById('listDone').innerHTML=doneSet.slice(0,6).map(x=>'<li>'+x.text+'<span class="dd">'+formatShortDate(x.date)+'</span></li>').join('')+(doneSet.length>6?'<li>… '+doneSet.length+' 项总计</li>':'');
+
+  // overdue
+  const overdue=[];
+  tasks.filter(tk=>!tk._deleted).forEach(tk=>{
+    const ld=latestDueDate(tk,t);
+    if(ld<t && !isDone(tk,ld))overdue.push({text:tk.text,date:ld,type:tk.type});
+  });
+  document.getElementById('anaOverdue').textContent=String(overdue.length).padStart(2,'0');
+  document.getElementById('listOverdue').innerHTML=overdue.slice(0,6).map(x=>'<li>'+x.text+'<span class="dd">'+formatShortDate(x.date)+'</span></li>').join('')+(overdue.length>6?'<li>… '+overdue.length+' 项逾期</li>':'');
+
+  // chart
+  const counts=weekDates.map(d=>doneSet.filter(x=>x.date===d).length);
+  const max=Math.max(1,...counts);
+  const labels=weekDates.map(d=>dayName(d).slice(0,3));
+  const chart=document.getElementById('chart');
+  chart.innerHTML=counts.map((c,i)=>{
+    const h=Math.round((c/max)*100);
+    return '<div class="bar"><div class="bar-track"><div class="bar-fill" style="height:'+h+'%"></div></div><span class="bar-val">'+c+'</span><span class="bar-lbl">'+labels[i]+'</span></div>';
+  }).join('');
+}
+updateAnalysis();
+
+function updateGlobalTodo(){
+  const n=tasks.filter(t=>!t._deleted).filter(isPendingToday).length;
+  document.getElementById('statTodo').textContent=String(n).padStart(2,'0');
+}
+updateGlobalTodo();
+
+/* ================= INSPIRATION TIMELINE ================= */
+const INSP_KEY='wb_inspiration';
+const INSP_ZH={book:'书本',film:'影音',food:'美食'};
+function migrateInsp(raw){
+  if(!raw||!raw.length)return raw;
+  if(raw[0].text && !raw[0].hasOwnProperty('thought')){
+    return raw.map((i,idx)=>({id:i.id||newId(),cat:i.cat||'book',date:todayStr(),title:'',thought:i.text||'',url:i.url||'',img:i.img||'',createdAt:Date.now()-idx*1000}));
+  }
+  return raw;
+}
+let inspirations=dedupeInsp(migrateInsp(JSON.parse(localStorage.getItem(INSP_KEY)||'null'))||[
+  {id:newId(),cat:'book',date:'2026-08-17',title:'《深度工作》',thought:'高质量工作产出 = 时间 x 专注度。',url:'',img:'',createdAt:Date.now()-3000},
+  {id:newId(),cat:'film',date:'2026-08-15',title:'电影《Her》',thought:'关于亲密关系与人工智能最温柔的预言。',url:'https://movie.douban.com/subject/6722879/',img:'',createdAt:Date.now()-6000},
+  {id:newId(),cat:'food',date:'2026-08-12',title:'无水咖喱鸡',thought:'周末想试试：无水咖喱鸡 + 椰浆饭。',url:'',img:'',createdAt:Date.now()-9000},
+  {id:newId(),cat:'book',date:'2026-08-10',title:'',thought:'"保持愚蠢，保持饥饿。" —— 乔布斯',url:'',img:'',createdAt:Date.now()-12000}
+]);
+function saveInsp(){stampAll(); inspirations=dedupeInsp(inspirations); localStorage.setItem(INSP_KEY,JSON.stringify(inspirations)); snapshotLocal(); syncDebounced();}
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+let inspFilter='all';
+function renderTimeline(){
+  const tl=document.getElementById('inspTimeline');
+  tl.innerHTML='';
+  const arr=inspirations.filter(i=>!i._deleted&&(inspFilter==='all'||i.cat===inspFilter)).slice().sort((a,b)=>{
+    const d=(b.date||'').localeCompare(a.date||'');
+    if(d!==0)return d;
+    return (b.createdAt||0)-(a.createdAt||0);
+  });
+  if(arr.length===0){tl.innerHTML='<div class="tl-empty">还没有灵感，点右上角「新增灵感」添加一条</div>';return;}
+  arr.forEach(i=>{
+    const item=document.createElement('div');item.className='tl-item';
+    const dot=document.createElement('div');dot.className='tl-dot';
+    const card=document.createElement('div');card.className='tl-card '+i.cat;
+    let html='';
+    html+='<div class="tl-meta"><span class="tl-date">'+(i.date||'')+'</span><span class="tl-tag '+i.cat+'">'+INSP_ZH[i.cat]+'</span></div>';
+    if(i.title)html+='<div class="tl-title">'+escapeHtml(i.title)+'</div>';
+    if(i.thought)html+='<div class="tl-text">'+escapeHtml(i.thought)+'</div>';
+    if(i.img||i.url){
+      html+='<div class="tl-media">';
+      if(i.img)html+='<img src="'+i.img+'" class="tl-thumb" data-full="'+i.img+'" alt="" />';
+      if(i.url)html+='<a class="tl-link" href="'+i.url+'" target="_blank" rel="noopener">↗ 打开链接</a>';
+      html+='</div>';
+    }
+    card.innerHTML=html;
+    card.onclick=(e)=>{
+      if(e.target.closest('.tl-del')||e.target.closest('.tl-edit')||e.target.closest('.tl-link')||e.target.closest('.tl-thumb'))return;
+      openEditInsp(i.id);
+    };
+    const del=document.createElement('div');del.className='tl-del';del.textContent='x';
+    del.onclick=(e)=>{e.stopPropagation();if(confirm('删除这条灵感？')){const it=inspirations.find(x=>x.id===i.id);if(it){it._deleted=true;it._mts=Date.now();}saveInsp();renderTimeline();}};
+    const editBtn=document.createElement('div');editBtn.className='tl-edit';editBtn.textContent='✎';editBtn.title='编辑';
+    editBtn.onclick=(e)=>{e.stopPropagation();openEditInsp(i.id);};
+    card.appendChild(editBtn);
+    card.appendChild(del);
+    item.appendChild(dot);item.appendChild(card);
+    tl.appendChild(item);
+  });
+  tl.querySelectorAll('.tl-thumb').forEach(img=>{
+    img.addEventListener('click',()=>{document.getElementById('lightboxImg').src=img.dataset.full;document.getElementById('lightbox').classList.add('show');});
+  });
+}
+
+/* Inspiration modal */
+let modalCat='book';
+let editingId=null;
+function openInspModal(){document.getElementById('inspModal').classList.add('show');}
+function closeInspModal(){
+  document.getElementById('inspModal').classList.remove('show');
+  editingId=null;
+  const h=document.querySelector('#inspModal .modal-h'); if(h)h.textContent='新增灵感';
+  document.getElementById('inspSave').textContent='保存';
+}
+function resetInspModal(){
+  editingId=null;
+  modalCat='book';
+  document.querySelectorAll('#inspCatPick .cat-opt').forEach(b=>b.classList.toggle('active',b.dataset.cat==='book'));
+  document.getElementById('inspModalDate').value=todayStr();
+  document.getElementById('inspModalTitle').value='';
+  document.getElementById('inspModalThought').value='';
+  document.getElementById('inspModalUrl').value='';
+  document.getElementById('inspModalImg').value='';
+  const hint=document.getElementById('inspImgHint'); if(hint){hint.style.display='none';hint.textContent='';}
+  const h=document.querySelector('#inspModal .modal-h'); if(h)h.textContent='新增灵感';
+  document.getElementById('inspSave').textContent='保存';
+}
+function openEditInsp(id){
+  const i=inspirations.find(x=>x.id===id);
+  if(!i)return;
+  editingId=id;
+  modalCat=i.cat||'book';
+  document.querySelectorAll('#inspCatPick .cat-opt').forEach(b=>b.classList.toggle('active',b.dataset.cat===modalCat));
+  document.getElementById('inspModalDate').value=i.date||todayStr();
+  document.getElementById('inspModalTitle').value=i.title||'';
+  document.getElementById('inspModalThought').value=i.thought||'';
+  document.getElementById('inspModalUrl').value=i.url||'';
+  document.getElementById('inspModalImg').value='';
+  const hint=document.getElementById('inspImgHint');
+  if(hint){hint.style.display='block';hint.textContent=i.img?'当前图片已设置 · 选择新图片将替换原图':'当前无图片 · 选择图片可添加';}
+  const h=document.querySelector('#inspModal .modal-h'); if(h)h.textContent='编辑灵感';
+  document.getElementById('inspSave').textContent='保存修改';
+  openInspModal();
+}
+document.getElementById('inspAddBtn').onclick=()=>{resetInspModal();openInspModal();};
+document.getElementById('inspChips').addEventListener('click',e=>{
+  const c=e.target.closest('.insp-chip');if(!c)return;
+  document.querySelectorAll('#inspChips .insp-chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active');inspFilter=c.dataset.filter;renderTimeline();
+});
+document.getElementById('inspCancel').onclick=closeInspModal;
+document.getElementById('inspModalBack').onclick=closeInspModal;
+document.getElementById('inspCatPick').addEventListener('click',e=>{
+  const b=e.target.closest('.cat-opt');if(!b)return;
+  modalCat=b.dataset.cat;
+  document.querySelectorAll('#inspCatPick .cat-opt').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+});
+document.getElementById('inspSave').onclick=()=>{
+  const date=document.getElementById('inspModalDate').value;
+  const title=document.getElementById('inspModalTitle').value.trim();
+  const thought=document.getElementById('inspModalThought').value.trim();
+  const url=document.getElementById('inspModalUrl').value.trim();
+  const file=document.getElementById('inspModalImg').files[0];
+  if(!date){alert('请选择日期');return;}
+  if(!title&&!thought&&!url&&!file){alert('请至少填写名称、感悟、链接或图片中的一项');return;}
+  const finish=(img)=>{
+    const now=Date.now();
+    if(editingId){
+      const idx=inspirations.findIndex(x=>x.id===editingId);
+      if(idx>-1){
+        const keepImg=img||inspirations[idx].img||'';
+        inspirations[idx]={cat:modalCat,date,title,thought,url,img:keepImg,createdAt:inspirations[idx].createdAt||now,_mts:now,id:editingId};
+      }
+    } else {
+      inspirations.push({id:newId(),cat:modalCat,date,title,thought,url,img:img||'',createdAt:now,_mts:now});
+    }
+    saveInsp();renderTimeline();closeInspModal();
+  };
+  if(file){const r=new FileReader();r.onload=e=>finish(e.target.result);r.readAsDataURL(file);}
+  else finish('');
+};
+
+/* Lightbox close */
+const lb=document.getElementById('lightbox');
+lb.addEventListener('click',()=>{lb.classList.remove('show');document.getElementById('lightboxImg').src='';});
+
+renderTimeline();
+
+/* ================= STATS COUNT-UP ================= */
+function countUp(id,target){
+  const el=document.getElementById(id);
+  let c=0; const step=Math.max(1,Math.ceil(target/35));
+  const t=setInterval(()=>{
+    c+=step; if(c>=target){c=target;clearInterval(t);}
+    el.textContent=String(c).padStart(2,'0');
+  },28);
+}
+countUp('statAi',aiNews.length);
+countUp('statFin',financeCards.length);
+countUp('statProj',projects.length);
+
+/* ================= GLASS RAIN + WIPE ================= */
+let frostFill='rgba(244,244,241,0.9)', rainStroke='rgba(20,20,20,0.32)', rainDot='rgba(20,20,20,0.16)';
+function updateFrost(){
+  const dark=rootEl.getAttribute('data-theme')==='dark';
+  frostFill =dark?'rgba(13,13,13,0.9)':'rgba(244,244,241,0.9)';
+  rainStroke=dark?'rgba(255,255,255,0.35)':'rgba(20,20,20,0.32)';
+  rainDot  =dark?'rgba(255,255,255,0.2)':'rgba(20,20,20,0.16)';
+}
+setTheme(localStorage.getItem('wb_theme')||'light');
+(function(){
+  const wrap=document.getElementById('glassHero');
+  const canvas=document.getElementById('glassCanvas');
+  const ctx=canvas.getContext('2d');
+  const hint=document.getElementById('glassHint');
+  const mask=document.createElement('canvas');
+  const mctx=mask.getContext('2d');
+  let W=0,H=0,wiped=false;
+  const drops=[];
+  function initDrops(){
+    drops.length=0;
+    const n=Math.round(W/9);
+    for(let i=0;i<n;i++)drops.push({x:Math.random()*W,y:Math.random()*H,len:8+Math.random()*16,sp:2+Math.random()*3.5});
+  }
+  function resize(){
+    const nw=wrap.clientWidth, nh=wrap.clientHeight;
+    if(!nw||!nh)return;
+    if(nw===W&&nh===H)return;
+    W=nw; H=nh;
+    canvas.width=W; canvas.height=H; mask.width=W; mask.height=H;
+    initDrops();
+  }
+  resize();
+  window.addEventListener('resize',resize);
+  function wipe(x,y){
+    mctx.globalCompositeOperation='source-over';
+    const g=mctx.createRadialGradient(x,y,0,x,y,48);
+    g.addColorStop(0,'rgba(255,255,255,1)');
+    g.addColorStop(0.65,'rgba(255,255,255,0.9)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    mctx.fillStyle=g; mctx.beginPath(); mctx.arc(x,y,48,0,Math.PI*2); mctx.fill();
+  }
+  let last={x:-1,y:-1};
+  canvas.addEventListener('mousemove',e=>{
+    const r=canvas.getBoundingClientRect();
+    const x=e.clientX-r.left, y=e.clientY-r.top;
+    wipe(x,y);
+    if(last.x>=0){
+      const dx=x-last.x,dy=y-last.y,dist=Math.hypot(dx,dy),steps=Math.max(1,dist/7);
+      for(let i=0;i<=steps;i++)wipe(last.x+dx*i/steps,last.y+dy*i/steps);
+    }
+    last={x,y};
+    if(!wiped){wiped=true;hint.style.opacity='0';}
+  });
+  canvas.addEventListener('mouseleave',()=>{last={x:-1,y:-1};});
+  function frame(){
+    resize();
+    mctx.globalCompositeOperation='destination-out';
+    mctx.fillStyle='rgba(0,0,0,0.006)';
+    mctx.fillRect(0,0,W,H);
+    ctx.clearRect(0,0,W,H);
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle=frostFill;
+    ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.drawImage(mask,0,0);
+    ctx.globalCompositeOperation='source-over';
+    ctx.strokeStyle=rainStroke;
+    ctx.lineWidth=1.2;
+    for(const d of drops){
+      ctx.beginPath(); ctx.moveTo(d.x,d.y); ctx.lineTo(d.x,d.y+d.len); ctx.stroke();
+      d.y+=d.sp; if(d.y>H){d.y=-d.len; d.x=Math.random()*W;}
+    }
+    ctx.fillStyle=rainDot;
+    const t=performance.now();
+    for(let i=0;i<Math.round(W/42);i++){
+      const x=(i*61+(t/60)%61)%W;
+      const y=(t/9+i*113)%H;
+      ctx.beginPath(); ctx.arc(x,y,1.7,0,Math.PI*2); ctx.fill();
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+/* ================= TABS ================= */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelectorAll('.board').forEach(b=>b.classList.remove('active'));
+    document.getElementById(t.dataset.board).classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+    requestAnimationFrame(observeAll);
+  });
+});
+
+/* ================= SCROLL REVEAL ================= */
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(en=>{if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});
+},{threshold:0.06});
+function observeAll(){
+  document.querySelectorAll('.board.active .rv:not(.in)').forEach(el=>io.observe(el));
+}
+// 初始渲染：先用内置快照，确保不依赖网络也有内容（必须在所有状态变量与渲染函数定义之后）
+renderAI('all'); renderFinance(); renderPlatNotices(); rebuildTicker();
+// 已配置 Worker 则先拉取云端 → 合并到本地 → 再回传，确保手机首次打开时不会用本地种子覆盖电脑数据
+if(canSync()){ syncPull(()=>syncPush(true)); }
+fetchNews(false);
+observeAll();
+</script>
+</body>
+</html>
