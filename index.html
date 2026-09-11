@@ -61,11 +61,17 @@
   .tabs{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;}
   #syncBtn,#newsRefresh{width:34px;height:34px;border:1px solid var(--line);border-radius:50%;background:transparent;color:var(--ink);cursor:pointer;font-size:15px;transition:all .2s;display:flex;align-items:center;justify-content:center;}
   #syncBtn:hover,#newsRefresh:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--line);}
-  .sync-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;margin-left:4px;position:relative;top:1px;}
+  .sync-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;flex:0 0 auto;}
   .sync-dot.ok{background:#2e9e5b;}
   .sync-dot.syncing{background:#e0a32e;animation:syncpulse 1s infinite;}
   .sync-dot.err{background:#c0392b;}
   @keyframes syncpulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .sync-wrap{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid var(--line);border-radius:999px;cursor:pointer;transition:all .2s;user-select:none;}
+  .sync-wrap:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--line);}
+  .sync-text{font-family:var(--fmono);font-size:9px;letter-spacing:1px;color:var(--muted);white-space:nowrap;}
+  .sync-wrap.err .sync-text{color:#c0392b;}
+  .sync-diag{margin:0 0 10px;padding:8px 10px;border-radius:10px;background:rgba(127,127,127,.08);font-family:var(--fmono);font-size:9px;line-height:1.6;color:var(--muted);word-break:break-all;}
+  .sync-diag b{color:var(--ink);font-weight:600;}
   .sync-pop{position:fixed;top:54px;right:18px;width:300px;max-width:calc(100vw - 36px);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:6px 6px 0 var(--line);z-index:60;display:none;}
   .sync-pop.open{display:block;animation:fadeUp .25s ease;}
   .sync-pop .sp-h{font-family:var(--fmono);font-size:12px;letter-spacing:2px;margin-bottom:12px;color:var(--ink);}
@@ -482,7 +488,10 @@
     <button id="themeBtn" title="切换明暗主题"></button>
     <button id="syncBtn" title="在线同步设置">⇄</button>
     <button id="newsRefresh" title="刷新资讯（AI资讯/财务联网更新）">↻</button>
-    <span id="syncDot" class="sync-dot" title="同步状态"></span>
+    <div id="syncWrap" class="sync-wrap" title="点击配置在线同步">
+      <span id="syncDot" class="sync-dot"></span>
+      <span id="syncText" class="sync-text">未配置</span>
+    </div>
   </div>
 
   <!-- TICKER -->
@@ -493,7 +502,7 @@
     <div class="bh rv">
       <div class="tag">BOARD 01 — 每日窗口</div>
       <h2>DAILY WINDOW</h2>
-      <div class="sub">AI SIGNAL FLOW × FINANCE OVERVIEW — 数据更新于 2026.08.17 · 联网抓取快照</div>
+      <div class="sub">AI SIGNAL FLOW × FINANCE OVERVIEW — <span id="newsStamp">离线内置快照</span></div>
     </div>
 
     <div class="stats rv">
@@ -769,6 +778,7 @@
   <!-- ================= SYNC SETTINGS POPOVER ================= -->
   <div class="sync-pop" id="syncPop">
     <div class="sp-h">SYNC · 在线同步</div>
+    <div id="syncDiag" class="sync-diag">未配置同步</div>
     <label>同步方式
       <select id="syncBackend">
         <option value="github">GitHub（推荐·永久免费·免VPN·国内直连）</option>
@@ -866,7 +876,40 @@ async function ghApi(method, path, body, token){
   });
 }
 let syncTimer=null;
-function setSyncDot(s){const d=document.getElementById('syncDot');if(d)d.className='sync-dot'+(s?' '+s:'');}
+let syncAutoTimer=null;      // 定时自动拉取
+let syncState='';            // 当前状态：''(待同步) / ok / syncing / err
+let syncLastErr='';          // 最近一次同步失败原因
+let syncLastOk=0;            // 最近一次同步成功时间
+function fmtClock(ts){ const d=new Date(ts||Date.now()); const p=x=>String(x).padStart(2,'0'); return p(d.getMonth()+1)+'/'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function syncDiagText(){
+  const b=syncCfg?syncCfg.backend:'github'; const p=[];
+  p.push('方式 <b>'+(b==='github'?'GitHub 直连':'EdgeOne /data')+'</b>');
+  if(b==='github'){
+    p.push('仓库 <b>'+(syncCfg&&syncCfg.repo?syncCfg.repo:'未填')+'</b>');
+    p.push('文件 <b>'+((syncCfg&&syncCfg.path)||'workbench.json')+'</b>');
+    const tk=(syncCfg&&syncCfg.token)||'';
+    p.push('Token <b>'+(tk?(tk.slice(0,7)+'…'+tk.slice(-4)+'（'+tk.length+'位）'):'未填')+'</b>');
+  }else{
+    p.push('地址 <b>'+((syncCfg&&syncCfg.url)||'同源 /data')+'</b>');
+  }
+  p.push('状态 <b>'+(canSync()?'已配置':'未配置')+'</b>');
+  if(syncLastOk) p.push('上次成功 <b>'+fmtClock(syncLastOk)+'</b>');
+  if(syncLastErr) p.push('错误 <b>'+syncLastErr+'</b>');
+  if(location.protocol==='file:') p.push('提示 <b>file:// 本地打开会被浏览器拦截跨域请求，请改用线上网址</b>');
+  return p.join(' · ');
+}
+function setSyncDot(s, tip){
+  syncState=s||'';
+  const d=document.getElementById('syncDot'); if(d) d.className='sync-dot'+(s?' '+s:'');
+  const w=document.getElementById('syncWrap'); if(w) w.className='sync-wrap'+(s==='err'?' err':'');
+  const t=document.getElementById('syncText');
+  if(t) t.textContent = s==='ok'?'已同步' : s==='syncing'?'同步中' : s==='err'?'同步失败' : (canSync()?'待同步':'未配置');
+  if(w) w.title = tip || (s==='err' ? ('同步失败：'+(syncLastErr||'未知错误')+' · 点击打开同步设置')
+                        : s==='ok' ? ('已同步 '+fmtClock(syncLastOk||Date.now())+' · 点击打开同步设置')
+                        : s==='syncing' ? '正在与云端同步…'
+                        : (canSync()?'已配置，等待同步 · 点击打开同步设置':'未配置同步 · 点击填写仓库与 Token'));
+  const g=document.getElementById('syncDiag'); if(g) g.innerHTML=syncDiagText();
+}
 function toast(msg){
   let t=document.getElementById('toast');
   if(!t){t=document.createElement('div');t.id='toast';t.className='toast';document.body.appendChild(t);}
@@ -967,9 +1010,10 @@ function edgeSync(push, silent, cb){
       if(d&&(d.projects||d.tasks||d.inspiration)){ applyState(d); }
       if(push&&!silent){ const p=(d.projects||[]).length,k=(d.tasks||[]).length,i=(d.inspiration||[]).length; toast('已与云端同步（云：项目'+p+'/任务'+k+'/灵感'+i+'）'); }
       else if(!push){ toast('已从云端拉取'); }
+      syncLastOk=Date.now(); syncLastErr='';
       setSyncDot('ok'); if(cb)cb(true);
     })
-    .catch(e=>{ setSyncDot('err'); const m=(e.name==='AbortError')?'超时(15s)':(e.message||'网络错误'); if(!silent) toast((push?'同步失败：':'拉取失败：')+m); if(cb)cb(false); })
+    .catch(e=>{ const m=(e.name==='AbortError')?'超时(15s)':(e.message||'网络错误'); syncLastErr=m; setSyncDot('err'); if(!silent) toast((push?'同步失败：':'拉取失败：')+m); if(cb)cb(false); })
     .finally(()=>{ clearTimeout(to); inSync=false; });
 }
 // ---------- GitHub 直连传输（浏览器↔api.github.com，无需服务器） ----------
@@ -980,9 +1024,11 @@ async function ghSync(push, silent, cb){
     let sha=null, remote=null;
     const gr=await ghApi('GET','/repos/'+repo+'/contents/'+encodeURIComponent(path),undefined,token);
     if(gr.ok){ const j=await gr.json(); sha=j.sha||null; try{ remote=JSON.parse(ghUnb64(j.content||'')); }catch(e){ remote=null; } }
+    else if(gr.status===401||gr.status===403){ throw new Error('AUTH'); }
     else if(gr.status!==404){ throw new Error('GitHub '+gr.status); }
     // 2) 云端有数据 → 先合并进本地（拉取）
     if(remote&&(remote.projects||remote.tasks||remote.inspiration)){ applyState(remote); }
+    syncLastOk=Date.now(); syncLastErr='';
     setSyncDot('ok');
     if(!push){ if(!silent) toast('已从 GitHub 拉取'); if(cb)cb(true); return; }
     // 3) 推送：把合并后的本地状态写回（带 sha 更新；并发冲突自动重试）
@@ -991,23 +1037,29 @@ async function ghSync(push, silent, cb){
     while(true){
       const pr=await ghApi('PUT','/repos/'+repo+'/contents/'+encodeURIComponent(path),
         {message:'workbench sync '+new Date().toISOString(), content, sha: sha||undefined}, token);
-      if(pr.ok){ if(!silent) toast('已与 GitHub 同步 ✓'); setSyncDot('ok'); if(cb)cb(true); break; }
+      if(pr.ok){ syncLastOk=Date.now(); syncLastErr=''; if(!silent) toast('已与 GitHub 同步 ✓'); setSyncDot('ok'); if(cb)cb(true); break; }
       if(pr.status===409 && attempt<2){ // 并发冲突：重新拉取最新 sha 再试
         attempt++; const r2=await ghApi('GET','/repos/'+repo+'/contents/'+encodeURIComponent(path),undefined,token);
         if(r2.ok){ const j2=await r2.json(); sha=j2.sha; try{ const rd=JSON.parse(ghUnb64(j2.content||'')); if(rd) applyState(rd); }catch(e){} }
         continue;
       }
+      if(pr.status===401||pr.status===403){ throw new Error('AUTH'); }
       throw new Error('GitHub '+pr.status);
     }
   }catch(e){
-    setSyncDot('err'); if(!silent) toast('GitHub 同步失败：'+(e.message||'网络错误')); console.warn('[sync] github failed:',e); if(cb)cb(false);
+    const auth=(e.message==='AUTH');
+    syncLastErr = auth ? 'Token 失效或无仓库写权限（HTTP 401/403）' : (e.message||'网络错误');
+    setSyncDot('err');
+    if(auth){ toast('GitHub Token 已失效或被撤销，请重新生成后填入'); openSyncPanel(); }
+    else if(!silent) toast('GitHub 同步失败：'+syncLastErr);
+    console.warn('[sync] github failed:',e); if(cb)cb(false);
   }finally{ inSync=false; }
 }
 // 后台自动同步（保存/改主题时触发）：静默，不弹窗，避免刷屏
 function syncDebounced(){ if(!canSync())return; if(inSync)return; clearTimeout(syncTimer); syncTimer=setTimeout(()=>syncPush(true),900); }
 // 同步设置弹窗
 const syncPop=document.getElementById('syncPop');
-document.getElementById('syncBtn').addEventListener('click',()=>{
+function openSyncPanel(force){
   const b=syncCfg?syncCfg.backend:'github';
   document.getElementById('syncBackend').value=b;
   document.getElementById('syncRepo').value=syncCfg?syncCfg.repo:'';
@@ -1017,8 +1069,29 @@ document.getElementById('syncBtn').addEventListener('click',()=>{
   document.getElementById('syncKey').value=syncCfg?syncCfg.key:'';
   toggleSyncFields();
   document.getElementById('snapInfo').textContent=snapInfo();
-  syncPop.classList.toggle('open');
-});
+  setSyncDot(syncState); // 刷新诊断信息
+  if(force) syncPop.classList.add('open'); else syncPop.classList.toggle('open');
+}
+document.getElementById('syncBtn').addEventListener('click',()=>openSyncPanel());
+const syncWrapEl=document.getElementById('syncWrap');
+if(syncWrapEl) syncWrapEl.addEventListener('click',()=>openSyncPanel(true));
+// 定时自动拉取：页面可见时每 90 秒拉一次云端，切回标签页立刻拉，保证手机/电脑互通
+function startAutoSync(){
+  if(syncAutoTimer) clearInterval(syncAutoTimer);
+  syncAutoTimer=setInterval(()=>{
+    if(document.hidden) return;
+    if(!canSync()||inSync) return;
+    syncPull(null);
+  },90000);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden) return;
+    if(!canSync()||inSync) return;
+    syncPull(()=>{});
+    if(typeof fetchNews==='function') fetchNews(false);
+  });
+  window.addEventListener('focus',()=>{ if(canSync()&&!inSync) syncPull(null); });
+}
+startAutoSync();
 function toggleSyncFields(){
   const b=document.getElementById('syncBackend').value;
   document.getElementById('githubFields').style.display = b==='github'?'block':'none';
@@ -1236,10 +1309,22 @@ document.getElementById('syncSnap').addEventListener('click',()=>{
     if(canSync()) syncPush(true);
   }catch(e){ toast('快照恢复失败'); }
 });
-/* ================= LIVE NEWS（Worker /news 聚合） ================= */
+/* ================= LIVE NEWS =================
+   两条联网通道（按可用性自动选择）：
+   1) 同源 news.json —— GitHub Pages / 任意静态托管都能用，无需服务器；
+      文件由后台定时任务刷新，页面直接拉取（同源，无跨域问题、免 VPN）。
+   2) EdgeOne /news 函数 —— 选了 EdgeOne 后端时才用。
+   两条都失败 → 回退 localStorage 缓存 → 回退内置快照。
+=============================================== */
 const NEWS_CACHE_KEY='wb_news';
-function getNewsCache(){ try{const c=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY)); if(c&&c.ts&&Date.now()-c.ts<6*3600_000) return c;}catch(e){} return null; }
-function setNewsCache(d){ try{localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(d));}catch(e){} }
+function getNewsCache(){ try{const c=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY)); if(c&&c._cachedAt&&Date.now()-c._cachedAt<6*3600_000) return c;}catch(e){} return null; }
+function setNewsCache(d){ try{ const o=Object.assign({},d,{_cachedAt:Date.now()}); localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(o)); return o; }catch(e){ return d; } }
+function markNewsAge(ts){
+  const el=document.getElementById('newsStamp'); if(!el) return;
+  if(!ts){ el.textContent='离线内置快照'; return; }
+  const d=new Date(ts), p=x=>String(x).padStart(2,'0');
+  el.textContent='数据更新于 '+d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+' · 联网抓取';
+}
 function classifyLive(t,kind){
   t=t||'';
   if(kind==='ai'){ if(/政策|立法|监管|规范|意见|通知|整改|治理|办法|条例|指南|合规/.test(t)) return 'policy'; if(/发布|上线|推出|首发|官宣|开放|预约|开售|亮相|落地/.test(t)) return 'product'; return 'breakthrough'; }
@@ -1254,21 +1339,29 @@ function applyNews(d){
 }
 async function fetchNews(force){
   const cached=getNewsCache();
-  if(!force && cached){ applyNews(cached); return; }
-  if(!canSync() || syncCfg.backend==='github'){ if(force) toast('当前为本地文件/ GitHub 模式，联网资讯需部署 EdgeOne 后使用；显示离线快照'); return; }
-  setSyncDot('syncing');
-  const u=syncBase()+'/news';
-  try{
-    const r=await fetch(u,{headers:{'X-Workbench-Key':syncCfg.key||''}});
-    if(!r.ok) throw new Error('status '+r.status);
-    const d=await r.json();
-    setNewsCache(d); applyNews(d);
-    setSyncDot('ok'); if(force) toast('资讯已联网刷新');
-  }catch(e){
-    if(cached){ applyNews(cached); setSyncDot('ok'); }
-    else setSyncDot('err');
-    if(force) toast('资讯刷新失败：'+(e.message||'网络错误')+'。当前显示离线快照');
+  if(!force && cached){ applyNews(cached); markNewsAge(cached._cachedAt||cached.ts); return; }
+  let ok=false, err='';
+  // 通道 1：EdgeOne 函数（仅在选了该后端时）
+  if(syncCfg && syncCfg.backend==='edgeone' && (syncCfg.url || /^https?:/.test(location.protocol))){
+    try{
+      const r=await fetch(syncBase()+'/news',{headers:{'X-Workbench-Key':syncCfg.key||''}});
+      if(r.ok){ const d=await r.json(); if(d&&(d.ai||d.finance)){ const o=setNewsCache(d); applyNews(o); markNewsAge(o._cachedAt); ok=true; } }
+    }catch(e){ err=e.message||'EdgeOne 请求失败'; }
   }
+  // 通道 2：同源 news.json（静态托管也可联网更新）
+  if(!ok){
+    try{
+      const r=await fetch('./news.json?t='+Date.now(),{cache:'no-store'});
+      if(r.ok){
+        const d=await r.json();
+        if(d&&(d.ai||d.finance)){ const o=setNewsCache(d); applyNews(o); markNewsAge(o._cachedAt); ok=true; }
+      }else if(r.status!==404){ err=(err?err+'；':'')+'news.json HTTP '+r.status; }
+    }catch(e){ err=err||(e.message||'news.json 拉取失败'); }
+  }
+  if(ok){ if(force) toast('资讯已联网刷新 ✓'); return; }
+  if(cached){ applyNews(cached); markNewsAge(cached._cachedAt||cached.ts); }
+  else { markNewsAge(0); }
+  if(force) toast('资讯刷新失败'+(err?('：'+err):'')+'，当前显示离线快照');
 }
 const newsBtn=document.getElementById('newsRefresh');
 if(newsBtn) newsBtn.addEventListener('click',()=>fetchNews(true));
@@ -2166,9 +2259,10 @@ function observeAll(){
 }
 // 初始渲染：先用内置快照，确保不依赖网络也有内容（必须在所有状态变量与渲染函数定义之后）
 renderAI('all'); renderFinance(); renderPlatNotices(); rebuildTicker();
-// 已配置 Worker 则先拉取云端 → 合并到本地 → 再回传，确保手机首次打开时不会用本地种子覆盖电脑数据
-if(canSync()){ syncPull(()=>syncPush(true)); }
+// 已配置则先拉取云端 → 合并到本地 → 再回传，确保手机首次打开时不会用本地种子覆盖电脑数据
+if(canSync()){ syncPull(()=>syncPush(true)); } else { syncLastErr=''; setSyncDot(''); }
 fetchNews(false);
+setInterval(()=>{ if(!document.hidden) fetchNews(false); },30*60*1000); // 每 30 分钟静默刷新资讯
 observeAll();
 </script>
 </body>
