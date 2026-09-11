@@ -805,6 +805,9 @@
       </label>
     </div>
     <div class="sp-btns">
+      <button id="syncQuick">一键填入我的仓库</button>
+    </div>
+    <div class="sp-btns">
       <button id="syncTest">测试</button>
       <button id="syncSave" class="primary">保存并同步</button>
     </div>
@@ -893,6 +896,7 @@ function syncDiagText(){
     p.push('地址 <b>'+((syncCfg&&syncCfg.url)||'同源 /data')+'</b>');
   }
   p.push('状态 <b>'+(canSync()?'已配置':'未配置')+'</b>');
+  if(!canSync()) p.push('下一步 <b>点「一键填入我的仓库」，粘贴 Token 后保存，即可自动拉取历史数据</b>');
   if(syncLastOk) p.push('上次成功 <b>'+fmtClock(syncLastOk)+'</b>');
   if(syncLastErr) p.push('错误 <b>'+syncLastErr+'</b>');
   if(location.protocol==='file:') p.push('提示 <b>file:// 本地打开会被浏览器拦截跨域请求，请改用线上网址</b>');
@@ -1017,15 +1021,34 @@ function edgeSync(push, silent, cb){
     .finally(()=>{ clearTimeout(to); inSync=false; });
 }
 // ---------- GitHub 直连传输（浏览器↔api.github.com，无需服务器） ----------
+// 读取云端文件。注意：Contents API 对 >1MB 的文件会返回空 content（encoding:"none"），
+// 此时必须改用 Accept: application/vnd.github.raw 再取一次原文，否则大数据读不回来。
+async function ghReadRemote(repo, path, token){
+  const gr=await ghApi('GET','/repos/'+repo+'/contents/'+encodeURIComponent(path),undefined,token);
+  if(gr.status===401||gr.status===403) throw new Error('AUTH');
+  if(gr.status===404) return {status:404, sha:null, data:null, big:false};
+  if(!gr.ok) throw new Error('GitHub '+gr.status);
+  const j=await gr.json();
+  const sha=j && j.sha ? j.sha : null;
+  let data=null, big=false;
+  if(j && j.content && j.encoding==='base64'){
+    try{ data=JSON.parse(ghUnb64(j.content)); }catch(e){ data=null; }
+  }
+  if(!data && sha){                       // 大文件：走 raw 媒体类型
+    big=true;
+    const rr=await fetch('https://api.github.com/repos/'+repo+'/contents/'+encodeURIComponent(path),
+      {headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github.raw','X-GitHub-Api-Version':'2022-11-28'}});
+    if(rr.ok){ try{ data=JSON.parse(await rr.text()); }catch(e){ data=null; } }
+  }
+  return {status:200, sha, data, big};
+}
 async function ghSync(push, silent, cb){
   const repo=syncCfg.repo.trim(), path=(syncCfg.path||'workbench.json').trim(), token=syncCfg.token.trim();
   try{
     // 1) 取云端当前文件（含 sha；404 表示尚不存在）
     let sha=null, remote=null;
-    const gr=await ghApi('GET','/repos/'+repo+'/contents/'+encodeURIComponent(path),undefined,token);
-    if(gr.ok){ const j=await gr.json(); sha=j.sha||null; try{ remote=JSON.parse(ghUnb64(j.content||'')); }catch(e){ remote=null; } }
-    else if(gr.status===401||gr.status===403){ throw new Error('AUTH'); }
-    else if(gr.status!==404){ throw new Error('GitHub '+gr.status); }
+    const res=await ghReadRemote(repo, path, token);
+    sha=res.sha; remote=res.data;
     // 2) 云端有数据 → 先合并进本地（拉取）
     if(remote&&(remote.projects||remote.tasks||remote.inspiration)){ applyState(remote); }
     syncLastOk=Date.now(); syncLastErr='';
@@ -1039,8 +1062,8 @@ async function ghSync(push, silent, cb){
         {message:'workbench sync '+new Date().toISOString(), content, sha: sha||undefined}, token);
       if(pr.ok){ syncLastOk=Date.now(); syncLastErr=''; if(!silent) toast('已与 GitHub 同步 ✓'); setSyncDot('ok'); if(cb)cb(true); break; }
       if(pr.status===409 && attempt<2){ // 并发冲突：重新拉取最新 sha 再试
-        attempt++; const r2=await ghApi('GET','/repos/'+repo+'/contents/'+encodeURIComponent(path),undefined,token);
-        if(r2.ok){ const j2=await r2.json(); sha=j2.sha; try{ const rd=JSON.parse(ghUnb64(j2.content||'')); if(rd) applyState(rd); }catch(e){} }
+        attempt++;
+        try{ const r2=await ghReadRemote(repo, path, token); sha=r2.sha; if(r2.data) applyState(r2.data); }catch(e){}
         continue;
       }
       if(pr.status===401||pr.status===403){ throw new Error('AUTH'); }
@@ -1073,6 +1096,16 @@ function openSyncPanel(force){
   if(force) syncPop.classList.add('open'); else syncPop.classList.toggle('open');
 }
 document.getElementById('syncBtn').addEventListener('click',()=>openSyncPanel());
+// 一键填入：免去手输仓库名，新设备只需再粘一次 Token
+const syncQuickBtn=document.getElementById('syncQuick');
+if(syncQuickBtn) syncQuickBtn.addEventListener('click',()=>{
+  document.getElementById('syncBackend').value='github';
+  document.getElementById('syncRepo').value='xdj-hanna/workbench-data';
+  document.getElementById('syncPath').value='workbench.json';
+  toggleSyncFields();
+  const tk=document.getElementById('syncToken'); if(tk) tk.focus();
+  toast('已填入仓库，粘贴 Token 后点「保存并同步」');
+});
 const syncWrapEl=document.getElementById('syncWrap');
 if(syncWrapEl) syncWrapEl.addEventListener('click',()=>openSyncPanel(true));
 // 定时自动拉取：页面可见时每 90 秒拉一次云端，切回标签页立刻拉，保证手机/电脑互通
