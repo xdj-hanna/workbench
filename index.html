@@ -1428,6 +1428,13 @@ function markNewsAge(ts){
   const d=new Date(ts), p=x=>String(x).padStart(2,'0');
   el.textContent='数据更新于 '+d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+' · 联网抓取';
 }
+function markPlatAge(ts){
+  const el=document.getElementById('platNote'); if(!el) return;
+  const tail='点击卡片在新标签打开官方 / 权威来源查看原文';
+  if(!ts){ el.textContent='离线内置快照 · '+tail; return; }
+  const d=new Date(ts), p=x=>String(x).padStart(2,'0');
+  el.textContent='联网公告 · 数据更新于 '+d.getFullYear()+'.'+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+' · '+tail;
+}
 function classifyLive(t,kind){
   t=t||'';
   if(kind==='ai'){ if(/政策|立法|监管|规范|意见|通知|整改|治理|办法|条例|指南|合规/.test(t)) return 'policy'; if(/发布|上线|推出|首发|官宣|开放|预约|开售|亮相|落地/.test(t)) return 'product'; return 'breakthrough'; }
@@ -1437,7 +1444,7 @@ function classifyLive(t,kind){
 function applyNews(d){
   if(d.ai&&d.ai.length){ aiLive=d.ai.map(n=>({cat:n.cat||classifyLive(n.title,'ai'), title:n.title, summary:(n.summary||'').slice(0,160), source:n.source||'RSS', date:n.date||''})); }
   if(d.finance&&d.finance.length){ finLive=d.finance.map(f=>({type:f.type||classifyLive(f.title,'fin'), title:f.title, tag:f.tag||'资讯', summary:(f.summary||'').slice(0,160), source:f.source||'RSS', date:f.date||''})); }
-  if(d.notices&&d.notices.length){ platLive=d.notices; }
+  if(d.notices&&d.notices.length){ platLive=d.notices; markPlatAge(d.ts||d._cachedAt); }
   renderAI(aiCur); renderFinance(); renderPlatNotices(); rebuildTicker();
 }
 async function fetchNews(force){
