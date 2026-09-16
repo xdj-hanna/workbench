@@ -554,9 +554,9 @@
       <span class="chip" data-p="xingtu" data-page-node-id="a8gRd80KXHYUzN7FfQrClk">星图</span>
     </div>
     <div class="plat-grid rv" id="platGrid" data-page-node-id="sSO31tdQsI4F3OGxqI5rM5"></div>
-    <div class="plat-note rv" id="platNote" data-page-node-id="CYiNmjTsh6rCy601iYhwJ6">数据快照 2026.09.04 · 整理自各平台官方公告与规则中心；点击卡片在新标签打开官方 / 权威来源查看原文</div>
+    <div class="plat-note rv" id="platNote" data-page-node-id="CYiNmjTsh6rCy601iYhwJ6">整理自各平台官方公告与规则中心；点击卡片在新标签打开官方 / 权威来源查看原文</div>
 
-    <div class="foot" data-page-node-id="ycmDeOWaTWxW3zZptQM72S">NOTHING-STYLE DAILY WINDOW · DATA SNAPSHOT 2026.09.04<br data-page-node-id="RVfaSQiZhxFOTZEm22rdxq">内容由公开资讯整理，仅供参考</div>
+    <div class="foot" data-page-node-id="ycmDeOWaTWxW3zZptQM72S">NOTHING-STYLE DAILY WINDOW · LIVE DATA FEED<br data-page-node-id="RVfaSQiZhxFOTZEm22rdxq">内容由公开资讯整理，仅供参考</div>
   </section>
 
   <!-- ================= BOARD 2 ================= -->
@@ -1420,8 +1420,17 @@ document.getElementById('syncSnap').addEventListener('click',()=>{
    两条都失败 → 回退 localStorage 缓存 → 回退内置快照。
 =============================================== */
 const NEWS_CACHE_KEY='wb_news';
-function getNewsCache(){ try{const c=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY)); if(c&&c._cachedAt&&Date.now()-c._cachedAt<6*3600_000) return c;}catch(e){} return null; }
-function setNewsCache(d){ try{ const o=Object.assign({},d,{_cachedAt:Date.now()}); localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(o)); return o; }catch(e){ return d; } }
+const NEWS_SCHEMA_V=2;   // 2 = 含 notices 分区。旧版本写入的缓存（无 _v）一律作废，否则公告会一直停在旧内置快照
+function getNewsCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY));
+    if(!c||!c._cachedAt) return null;
+    if(c._v!==NEWS_SCHEMA_V) return null;                 // 结构版本不符 → 丢弃，强制重新联网
+    if(Date.now()-c._cachedAt>=6*3600_000) return null;   // 超过 6 小时 → 过期
+    return c;
+  }catch(e){} return null;
+}
+function setNewsCache(d){ try{ const o=Object.assign({},d,{_cachedAt:Date.now(),_v:NEWS_SCHEMA_V}); localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(o)); return o; }catch(e){ return d; } }
 function markNewsAge(ts){
   const el=document.getElementById('newsStamp'); if(!el) return;
   if(!ts){ el.textContent='离线内置快照'; return; }
@@ -1445,12 +1454,24 @@ function applyNews(d){
   if(d.ai&&d.ai.length){ aiLive=d.ai.map(n=>({cat:n.cat||classifyLive(n.title,'ai'), title:n.title, summary:(n.summary||'').slice(0,160), source:n.source||'RSS', date:n.date||''})); }
   if(d.finance&&d.finance.length){ finLive=d.finance.map(f=>({type:f.type||classifyLive(f.title,'fin'), title:f.title, tag:f.tag||'资讯', summary:(f.summary||'').slice(0,160), source:f.source||'RSS', date:f.date||''})); }
   if(d.notices&&d.notices.length){ platLive=d.notices; markPlatAge(d.ts||d._cachedAt); }
+  else { platLive=null; markPlatAge(0); }   // 数据源没有 notices → 明确回退内置快照，不再顶着「联网」字样
   renderAI(aiCur); renderFinance(); renderPlatNotices(); rebuildTicker();
 }
+let newsBusy=false;
 async function fetchNews(force){
   const cached=getNewsCache();
-  if(!force && cached){ applyNews(cached); markNewsAge(cached._cachedAt||cached.ts); return; }
+  if(!force && cached){
+    // 缓存在手：先秒开渲染，同时后台静默校准一次（这样 30 分钟定时刷新才真正生效）
+    applyNews(cached); markNewsAge(cached._cachedAt||cached.ts);
+    loadNews(false);
+    return;
+  }
+  return loadNews(force);
+}
+async function loadNews(force){
+  if(newsBusy) return; newsBusy=true;
   let ok=false, err='';
+  try{
   // 通道 1：EdgeOne 函数（仅在选了该后端时）
   if(syncCfg && syncCfg.backend==='edgeone' && (syncCfg.url || /^https?:/.test(location.protocol))){
     try{
@@ -1468,9 +1489,11 @@ async function fetchNews(force){
       }else if(r.status!==404){ err=(err?err+'；':'')+'news.json HTTP '+r.status; }
     }catch(e){ err=err||(e.message||'news.json 拉取失败'); }
   }
+  } finally { newsBusy=false; }
   if(ok){ if(force) toast('资讯已联网刷新 ✓'); return; }
-  if(cached){ applyNews(cached); markNewsAge(cached._cachedAt||cached.ts); }
-  else { markNewsAge(0); }
+  const c2=getNewsCache();
+  if(c2){ markNewsAge(c2._cachedAt); return; }   // 后台校准失败：保留已渲染的缓存内容
+  platLive=null; markPlatAge(0); renderPlatNotices(); markNewsAge(0);
   if(force) toast('资讯刷新失败'+(err?('：'+err):'')+'，当前显示离线快照');
 }
 const newsBtn=document.getElementById('newsRefresh');
@@ -1655,72 +1678,73 @@ document.getElementById('skillRefresh').addEventListener('click',()=>fetchTrendi
 
 /* ================= PLATFORM NOTICES (board 01 / 04) ================= */
 let platNotices=[
-  // 抖音
-  {p:'douyin',date:'2026-08-29',title:'抖音电商严打诱导第三方交易',
-   intro:'公布典型违规案例：二维码引流、微信私下交易、粉丝群诈骗、虚假提货卡、兼职投资骗局等；违规者下架商品、限单冻款、停业清退，达人冻结佣金或关闭电商权限。',
-   url:'https://www.toutiao.com/article/7678906223533490739/'},
-  {p:'douyin',date:'2026-08-20',title:'清洁电器专项治理：严打虚假宣传、虚假测评',
-   intro:'抖音电商安全与信任中心整治清洁电器品类虚假宣传与虚假测评，要求售后权益宣传与页面、规则及实际保障一致，不得用口播承诺替代页面规则。',
-   url:'https://so.html5.qq.com/page/real/search_news?docid=70000021_6716a869f8e99852'},
-  {p:'douyin',date:'2026-08-13',title:'修订《【滋补保健】行业管理规范》生效',
-   intro:'调整定向准入类目清出标准，涉及冬虫夏草、燕窝、即食燕窝、养生泡酒料、肉苁蓉等数十个滋补保健类目，公示期满后正式生效。',
-   url:'https://school.jinritemai.com/doudian/web/article/aJoU3XubXQTs'},
-  {p:'douyin',date:'2026-08-12',title:'修订《【母婴图书玩具宠物】行业管理规范》生效',
-   intro:'新增冷鲜猫粮、冷鲜狗粮为定向准入类目；兔子活体、鼠类活体、鹦鹉（特种养殖）、宠物貂活体转为暂停招商。',
-   url:'https://school.jinritemai.com/doudian/web/article/aJoR7xZX1itz'},
+  {p:"douyin",date:"2026-09-16",title:"《抖音电商创作者「红十条」违规管理规则》修订生效",
+   intro:"公示期9月8日至9月15日，9月16日生效。核心变化为更新「侵害未成年人权益」「不良社会风气」对应细则，并重申创作者推广不符合人身财产安全要求的商品时，须与商家向消费者承担连带责任。",
+   url:"https://school.jinritemai.com/doudian/web/article/aJqNrdeNXkxM"},
+  {p:"douyin",date:"2026-09-08",title:"抖音商城中秋团圆季大促招商启动，9月19日上线",
+   intro:"活动9月19日至9月24日。商家可二选一报名立减折扣或一件直降，立减以填报报价为基础统一15%，报名商品还有机会获平台全额出资消费券；货品端重点倾斜服饰鞋包、食品生鲜、酒水等中秋心智类目。",
+   url:"https://www.sohu.com/a/1074792129_122553547"},
+  {p:"douyin",date:"2026-09-07",title:"公布诱导至第三方交易典型违规案例",
+   intro:"依据《【诱导第三方】处置细则》，对违规商家停业整顿、清退，冻结违规达人佣金或永久关闭电商权限。重点打击三类行为：直接展示二维码或电话引流线下交易、以加粉丝群等话术诱导脱离平台、以AI课程名义引流诈骗。",
+   url:"https://www.toutiao.com/article/7682616674381513231/"},
+  {p:"douyin",date:"2026-09-04",title:"服饰鞋靴行业专项治理：严打虚假宣传与信息不规范",
+   intro:"重点整治三类问题：用「不勾丝」「不起球」等绝对化用语夸大品质；无CMA、CNAS等有效检测报告即宣传防晒抗菌防臭等功能；专拍链接未完善主图、SKU图、材质成分等关键信息，导致消费者错拍错发。",
+   url:"https://new.qq.com/rain/a/20260904A0CD9000"},
+  {p:"douyin",date:"2026-09-02",title:"二手服饰类商品治理公告",
+   intro:"平台禁止售卖与推广二手服饰（奢品服饰除外）。以「孤品」「尾货」「原单」「样衣」「闲置」等名义销售来源不明服饰、或以盲盒形式售卖均属违规。商家最低商品封禁、最高店铺清退；创作者最高永久关闭电商权限。",
+   url:"https://school.jinritemai.com/doudian/web/article/aJcaGXNcvYKZ"},
 
-  // 小红书
-  {p:'xhs',date:'2026-08-29',title:'严打热点事件AI造谣、AI换脸等虚假内容',
-   intro:'薯管家公告：处置热点事件AI伪造聊天截图笔记38篇、相关当事人AI换脸视频312个，上线针对此类内容的新增治理策略；AI仿冒名人累计处置笔记5.65万篇。',
-   url:'https://www.toutiao.com/article/7679260446251188772/'},
-  {p:'xhs',date:'2026-08-26',title:'治理恶意起号和违规营销',
-   intro:'月处置违规账号179.9万个：虚假仿冒号1.1万（"韦*奕"等）、抄袭同质化号42.7万、互动作弊号17.8万、违规营销号46.9万、水下商家71.4万。',
-   url:'https://new.qq.com/rain/a/20260826A0BF9R00'},
-  {p:'xhs',date:'2026-08-19',title:'关于AI伪造人脸和高频AI脸的治理公告',
-   intro:'严禁使用AI合成/换脸伪造名人形象带货、冒充真人身份运营账号；限制高频同质化AI人脸内容；违者将限流、下架、封禁并移交相关部门。',
-   url:'https://weibo.com/5859555080/5333590091239590'},
-  {p:'xhs',date:'2026-08-05',title:'毒动画等涉未成年人内容治理公告',
-   intro:'落实"清朗·未成年人网络保护"，累计处置违规笔记8.4万余篇、违规评论10.5万余条、违规账号3571个，重点打击AI魔改经典动画、诱导未成年人不良交友等。',
-   url:'https://www.toutiao.com/article/7670339248385540648'},
+  {p:"xhs",date:"2026-09-15",title:"发布首份《社区金融生态公约》，划出八大禁区",
+   intro:"依据《金融产品网络营销管理办法》制定。禁止恶意唱衰市场、非法荐股、伪造权威背书、承诺「保本保息」、编造虚假投资人设、变相导流站外等；金融营销须先依法持牌再通过平台专业认证；AI生成金融内容必须标注。",
+   url:"https://www.bbtnews.com.cn/2026/0915/606007.shtml"},
+  {p:"xhs",date:"2026-09-15",title:"关于「招募未成年人兼职」违规内容的治理公告",
+   intro:"暑期以来累计处置违规笔记6346篇、违规评论2801条、违规账号349个。重点查处三类内容：以高薪名义招募未成年人兼职、以「代拍接单」名义诱导、以及有偿语音陪聊招募，涉事账号已予封禁。",
+   url:"https://www.toutiao.com/article/7685603170378138164/"},
+  {p:"xhs",date:"2026-08-29",title:"严打热点事件AI造谣、AI换脸等虚假内容",
+   intro:"薯管家公告：处置热点事件AI伪造聊天截图笔记38篇、相关当事人AI换脸视频312个，并上线针对此类内容的新增治理策略；AI仿冒名人累计处置笔记5.65万篇。",
+   url:"https://www.toutiao.com/article/7679260446251188772/"},
+  {p:"xhs",date:"2026-08-19",title:"关于AI伪造人脸和高频AI脸的治理公告",
+   intro:"严禁使用AI合成或换脸伪造名人形象带货、冒充真人身份运营账号；限制高频同质化AI人脸内容；违者将限流、下架、封禁并移交相关部门处理。",
+   url:"https://weibo.com/5859555080/5333590091239590"},
 
-  // 视频号/微信小店
-  {p:'channels',date:'2026-08-21',title:'关于「微信小店调整部分场景经营类目」公告',
-   intro:'自9月1日起关闭【食品饮料-传统滋补】下部分类目"部分场景经营"，同时开放【生鲜、农资园艺】部分类目，达标后可升级"全场景经营"支持视频号等场景。',
-   url:'https://store.weixin.qq.com/'},
-  {p:'channels',date:'2026-08-19',title:'《账号体系管理规则-20260817版本》修订生效',
-   intro:'视频号账号自然年内变更关联商家达3次后，自营身份年GMV≥1000万且满足合规条件可继续变更，全年变更不超过12次。',
-   url:'https://store.weixin.qq.com/chengzhang/webdoc/wiki/9745/b0fcc60d8df9142b/growth_center_rule_for_store/28'},
-  {p:'channels',date:'2026-08-19',title:'多项规则集中生效',
-   intro:'《一级类目-图书》类目管理规则修订、《三级类目-中小学教材》定向准入标准新规、《"好店"标识管理规则》修订同日生效。',
-   url:'https://store.weixin.qq.com/'},
-  {p:'channels',date:'2026-08-03',title:'关于「短视频带货场景 AI 应用」治理公告',
-   intro:'创作者在发布含AI生成内容的带货短视频时，需符合《微信视频号运营规范》并主动添加AI标注，否则限制分发。',
-   url:'https://store.weixin.qq.com/'},
+  {p:"channels",date:"2026-09-18",title:"《微信小店「一级类目-成人用品」类目管理规则》修订生效",
+   intro:"公示期9月11日至9月17日，9月18日生效。明确避孕套商品页面出现「延时」「持久」等功能性描述时的三项要求：须说明功效来源、含药物成分须提供第三类医疗器械经营许可证、不得作承诺性保证性表述。",
+   url:"https://store.weixin.qq.com/chengzhang/webdoc/wiki/9920/b147319409f39e65/growth_center_rule_for_store/28"},
+  {p:"channels",date:"2026-09-04",title:"珠宝首饰类目与珠宝玉石准禁售细则修订生效",
+   intro:"《微信小店「一级类目-珠宝首饰」定向准入和清退标准》《类目管理规则》及《珠宝玉石商品准禁售细则》同日生效，核心变化为新增二级类目「合成彩色宝石」，并同步修订定向准入资质要求与准禁售范围。",
+   url:"https://store.weixin.qq.com/chengzhang/webdoc/wiki/830/20f8457cab2793d8/growth_center_rule_for_store"},
+  {p:"channels",date:"2026-09-02",title:"《一级类目-医疗器械》定向准入和清退标准修订生效",
+   intro:"类目定向准入标准中的「品牌商标范围」新增第9类（隐形眼镜），经营隐形眼镜相关商品的商家需按新标准补齐商标与资质要求，未达标商品将被驳回或清退。",
+   url:"https://store.weixin.qq.com/"},
+  {p:"channels",date:"2026-09-01",title:"《微信小店带货保证金管理规则》修订生效",
+   intro:"新增浮动保证金和特殊商品保证金相关内容。带货者保证金不再完全统一固定，将按经营品类与风险情况浮动核定，特殊商品需额外缴纳保证金，请带货者留意账户保证金变动。",
+   url:"https://store.weixin.qq.com/"},
 
-  // 淘宝
-  {p:'taobao',date:'2026-08-31',title:'天猫《未按约定提供相关资质》规则变更正式执行',
-   intro:'8月17日公示、8月24日生效并设7天过渡期，8月31日起全面执行；资质不全、逾期未更新、资质不符的店铺将按标准受罚。',
-   url:'https://shuaishou.com/school/infos84185.html'},
-  {p:'taobao',date:'2026-08-26',title:'淘宝规则中心多规则意见征集中',
-   intro:'《淘宝网保证金管理规范》《淘宝网市场管理与违规处理规范》《淘宝网关于扰乱市场秩序实施细则》等多项规则处于意见征集阶段，商家可关注公示。',
-   url:'https://rulechannel.taobao.com/'},
-  {p:'taobao',date:'2026-08-12',title:'淘宝天猫售后新规正式执行',
-   intro:'《违背承诺的规则》：家电/数码/大件家具/卫浴须明确上门维修时效；承诺不兑现按5元/单现金赔付；赠品须通过平台工具发布并明示规格。',
-   url:'https://rulechannel.taobao.com/'},
-  {p:'taobao',date:'2026-08-03',title:'《商品信息质量分管理规范》变更生效',
-   intro:'调整商品扶优质量分生效条件为"基础质量分≥80分"，并增加"质量分≥20分且满足活动要求可获得更多额外曝光"的表述。',
-   url:'https://tbxuetang.com/information/detail.jhtml?id=1813'},
+  {p:"taobao",date:"2026-09-15",title:"淘宝新增《「极有家严选」市场管理规范》生效",
+   intro:"9月8日公示、9月15日生效。适用住宅家具、家装主材、全屋定制、电子/电工、基础建材、五金/工具、家装灯饰光源等类目，符合条件的卖家可申请加入，需按规范提供对应服务保障，加入不等于平台承诺保量。",
+   url:"https://rulechannel.taobao.com/"},
+  {p:"taobao",date:"2026-09-15",title:"天猫调整大件运费险适用类目与退货宝不适用类目",
+   intro:"9月8日公示、9月15日生效。新增大件或特殊履约商品，示例含轻定制衣柜、书柜、电视柜、橱柜等轻定制柜类，伸缩或组合梳妆台、可伸缩或折叠餐桌，以及部分汽车拓展架、外挂行李箱、车载冰箱和保温箱等。",
+   url:"https://rulechannel.taobao.com/"},
+  {p:"taobao",date:"2026-09-14",title:"《退货宝不适用类目》新增18个类目生效",
+   intro:"9月7日公示、9月14日生效。新增类目集中在高损耗、难二次销售的生鲜与短保食品，如新鲜便当饭团、鲜制面点速食、新鲜短保肉干肉脯、短保常温液态奶与短保饮料等。该类目商品今后不再可使用退货宝，但退换货本身仍按原售后规则执行。",
+   url:"https://rulechannel.taobao.com/"},
+  {p:"taobao",date:"2026-09-07",title:"天猫《物流时效管理规范》变更生效",
+   intro:"9月1日公示。新增电子面单作为基础发货要求、商家滥用发货工具管控、无物流轨迹订单违规管控、物流轨迹违规的商家免责情形四项于9月7日生效；其余变更点于9月中下旬逐步生效。",
+   url:"https://rulechannel.taobao.com/"},
+  {p:"taobao",date:"2026-08-31",title:"天猫《未按约定提供相关资质》规则正式执行",
+   intro:"8月17日公示、8月24日生效并设7天过渡期，8月31日起全面执行。营业执照、品牌授权、行业许可、3C认证、检测报告、备案证明等材料建议建立到期台账并提前60天提醒续期，避免临时复核时出现版本过期或授权链不完整。",
+   url:"https://rulechannel.taobao.com/"},
 
-  // 星图（巨量星图 / 达人商单平台）
-  {p:'xingtu',date:'2026-08-18',title:'指派任务一口价报价升级',
-   intro:'指派任务短视频一口价从"按时长"整合为"植入视频/定制视频"两类报价；协商改价幅度放宽至原报价 70%–300%；8/17 起通知、8/18 统一切换并沿用未更新达人的历史报价。',
-   url:'https://www.xingtu.cn/help-center/author/208549'},
-  {p:'xingtu',date:'2026-08-24',title:'巨量星图虚假商单管控规则修订生效',
-   intro:'规则于 8/17 修订、8/24 生效，更新虚假商单（刷量、虚假交易、虚假履约等）的识别标准、处置措施与申诉流程。',
-   url:'https://star.toutiao.com/help-center/demander/144810'},
-  {p:'xingtu',date:'2026-08-28',title:'抖音"违规蹭热不当获利"治理公告',
-   intro:'整体从严处置借热点以虚假身份/内容/营销/流量不当获利的行为，严禁"假揭黑真获利"、搬运拼凑虚构营销信息获利，星图达人商单内容同样适用。',
-   url:'https://stcn.com/article/detail/1302174.html'}
+  {p:"xingtu",date:"2026-09-16",title:"【千川星选】优质激励活动新周期启动",
+   intro:"活动周期自9月16日起，每月16日至次月15日，与星川达人等级统计周期一致。面向当前周期生效等级为S3、S4、S5的达人（不含直升达人）；周期内至少产出1条优质素材（首投14日内累计消耗≥5000元）即可获奖，单达人单周期奖金上限100万元。",
+   url:"https://www.xingtu.cn/help-center/author/235726"},
+  {p:"xingtu",date:"2026-09-04",title:"【星川任务】达人手册及激励政策更新",
+   intro:"星川任务是巨量星图与巨量千川联合推出的达人素材投放合作产品，覆盖商品全域与直播全域短视频投流。新机制下无需挂载购物车组件、不占用电商挂车次数；投放消耗分成按T+1结算，无需承担退货风险。",
+   url:"https://www.xingtu.cn/help-center/author/185745"},
+  {p:"xingtu",date:"2026-08-28",title:"抖音「违规蹭热不当获利」治理公告",
+   intro:"整体从严处置借热点以虚假身份、虚假内容、虚假营销或虚假流量不当获利的行为，严禁「假揭黑真获利」、搬运拼凑虚构营销信息获利，巨量星图达人商单内容同样适用。",
+   url:"https://stcn.com/article/detail/1302174.html"}
 ];
 const platName={douyin:'抖音',xhs:'小红书',channels:'视频号',taobao:'淘宝',xingtu:'星图'};
 let platCur='all';
